@@ -2,8 +2,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <stdio.h>
-#include "util.c"
-#include "html.c"
+#include "fns.h"
 
 int
 main(void)

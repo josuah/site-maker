@@ -1,9 +1,13 @@
 BIN = src/page-home src/page-item src/page-search
+OBJ = src/html.o
 
 all: ${BIN}
 
-${BIN}: ${BIN:=.c}
-	${CC} -o $@ $@.c
+.c.o:
+	${CC} -c ${CFLAGS} -o $@ $<
+
+${BIN}: ${BIN:=.o} ${OBJ}
+	${CC} -o $@ $@.o ${OBJ}
 
 data cgi:
 	mkdir -p $@

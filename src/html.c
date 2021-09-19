@@ -1,6 +1,8 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <string.h>
+#include <stdlib.h>
 #include "fns.h"
 
 void
@@ -26,7 +28,7 @@ htmlprint(char *s)
 	}
 }
 
-static void
+void
 htmlcat(char *path)
 {
 	FILE *fp;
@@ -42,9 +44,9 @@ htmlcat(char *path)
 }
 
 static int
-sel(struct dirent const *de)
+iscat(struct dirent const *de)
 {
-	return de->d_name[0] != '.';
+	return strncmp(de->d_name, "cat", 3) == 0;
 }
 
 void
@@ -53,11 +55,11 @@ htmlcategories(void)
 	struct dirent **dlist, **dp;
 	int n;
 
-	if((n = scandir("data", &dlist, sel, NULL)) == -1)
+	if((n = scandir("data", &dlist, iscat, NULL)) == -1)
 		err(1, "reading data directory");
 
 	for(dp = dlist; n > 0; n--, dp++){
-		fputs("<p>", stdout);
+		fputs("<a href=\"/cgi/page-category?cat=", stdout);
 		htmlprint((*dp)->d_name);
 		fputs("</p>\n", stdout);
 		free(*dp);
