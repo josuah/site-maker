@@ -1,5 +1,5 @@
-BIN = src/page-home src/page-item src/page-search
-OBJ = src/html.o
+BIN = src/page-home src/page-item src/page-category
+OBJ = src/html.o src/util.o src/cgi.o src/info.o
 
 all: ${BIN}
 

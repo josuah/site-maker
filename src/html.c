@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <stdlib.h>
+#include "dat.h"
 #include "fns.h"
 
 void
@@ -43,26 +44,46 @@ htmlcat(char *path)
 	fclose(fp);
 }
 
-static int
-iscat(struct dirent const *de)
+/*
+ * extract parameters from head and bump tail pointer:
+ *	text with {{parameter}} in some line
+ *	          0 ^return  0 ^tail
+ */
+static char *
+next(char *head, char **tail)
 {
-	return strncmp(de->d_name, "cat", 3) == 0;
+	char *beg, *end;
+
+	if((beg = strstr(head, "{{")) == NULL
+	|| (end = strstr(beg, "}}")) == NULL)
+		return NULL;
+	*beg = *end = '\0';
+	*tail = end + strlen("}}");
+	return beg + strlen("{{");
 }
 
 void
-htmlcategories(void)
+htmltemplate(char *htmlpath, Info *info)
 {
-	struct dirent **dlist, **dp;
-	int n;
+	size_t sz = 0;
+	FILE *fp = NULL;
+	char *line = NULL, *head, *tail, *param, *val;
 
-	if((n = scandir("data", &dlist, iscat, NULL)) == -1)
-		err(1, "reading data directory");
+	if((fp = fopen(htmlpath, "r")) == NULL)
+		err(1, "opening template %s", htmlpath);
 
-	for(dp = dlist; n > 0; n--, dp++){
-		fputs("<a href=\"/cgi/page-category?cat=", stdout);
-		htmlprint((*dp)->d_name);
-		fputs("</p>\n", stdout);
-		free(*dp);
+	while(getline(&line, &sz, fp) > 0){
+		head = tail = line;
+		while((param = next(head, &tail)) != NULL){
+			fputs(head, stdout);
+			if((val = infoget(info, param)) == NULL
+			&& (val = cgiquery(param)) == NULL)
+				fprintf(stdout, "{{error:%s}}", param);
+			else
+				htmlprint(val);
+			head = tail;
+		}
+		fputs(tail, stdout);
 	}
-	free(dlist);
+	fclose(fp);
 }

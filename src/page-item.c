@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
-#include "util.h"
+#include "dat.h"
+#include "fns.h"
 
 int
 main(void)
