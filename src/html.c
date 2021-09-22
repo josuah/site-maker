@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,16 +49,17 @@ isimg(struct dirent const *de)
 }
 
 void
-htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *))
+htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), int infofile)
 {
+	Info tmp;
+	InfoRow row;
 	struct dirent **dlist, **dp;
 	char *d, path[128];
-	char const *errstr;
 	size_t cat, item;
 	int n;
 
-	cat = cgiquerynum("cat", 1, CAT_MAX, &errstr);
-	item = cgiquerynum("cat", 1, CAT_MAX, &errstr);
+	cat = infonum(cgiget(), "cat", 1, 10000);
+	item = infonum(cgiget(), "item", 1, 10000);
 
 	snprintf(path, sizeof path, fmt, cat, item);
 	if((n = scandir(path, &dlist, fn, nil)) == -1)
@@ -65,12 +67,27 @@ htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *))
 	for(dp = dlist; n > 0; n--, dp++){
 		d = (*dp)->d_name;
 
-		if(infoset(info, "elem", d + strcspn(d, "0123456789")) == -1)
-			err(1, "infoset");
+		if(infofile){
+			snprintf(path, sizeof path, fmt, cat, item);
+			strlcat(path, "/", sizeof path);
+			strlcat(path, d, sizeof path);
+			strlcat(path, "/info", sizeof path);
+			if((info = inforead(info, path)) == nil)
+				err(1, "parsing %s", path);
+		}
+
+		row.key = name;
+		row.val = d + strcspn(d, "0123456789");
+		tmp.vars = &row;
+		tmp.next = info;
+		tmp.len = 1;
+		tmp.buf = nil;
 
 		snprintf(path, sizeof path, "html/elem.%s.html", name);
-		htmltemplate(path, info);
+		htmltemplate(path, &tmp);
 
+		if(infofile)
+			info = infopop(info);
 		free(*dp);
 	}
 
@@ -114,19 +131,19 @@ htmltemplate(char *htmlpath, Info *info)
 			fputs(head, stdout);
 
 			if(strcmp(param, "list:cat") == 0){
-				htmllist(info, "cat", "data", iscat);
+				htmllist(info, "cat", "data", iscat, 1);
 				continue;
 			}
 			if(strcmp(param, "list:item") == 0){
-				htmllist(info, "item", "data/cat%zu", isitem);
+				htmllist(info, "item", "data/cat%zu", isitem, 1);
 				continue;
 			}
 			if(strcmp(param, "list:img") == 0){
-				htmllist(info, "img", "data/cat%zu/item%zu", isimg);
+				htmllist(info, "img", "data/cat%zu/item%zu", isimg, 0);
 				continue;
 			}
 
-			if((val = infoget(info, param)) == nil)
+			if((val = infostr(info, param)) == nil)
 				fprintf(stdout, "{{error:%s}}", param);
 			else
 				htmlprint(val);

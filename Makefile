@@ -1,7 +1,8 @@
-BIN = src/show
+BIN = src/show src/admin-add-cat
 OBJ = src/html.o src/util.o src/cgi.o src/info.o
 
-LDFLAGS = --static
+LDFLAGS = -static
+CFLAGS = -pedantic -std=c99 -Wall -Werror
 
 all: ${BIN}
 

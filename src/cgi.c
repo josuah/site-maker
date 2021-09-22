@@ -1,77 +1,77 @@
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include "dat.h"
 #include "fns.h"
 
-char *cgivars[128];
-char const *cgierror = "";
-
-static int
-init(void)
+Info *
+cgiinfo(char *s)
 {
-	static int done = 0;
-	size_t i;
-	char *query, *var;
+	Info *info;
+	char *var, *eq;
 
-	if(done)
-		return 0;
+	if((info = calloc(sizeof *info, 1)) == nil)
+		err(1, "calloc");
 
-	if((query = getenv("QUERY_STRING")) == nil){
-		cgierror = "$QUERY_STRING is not set";
-		return -1;
+	while((var = strsep(&s, "&"))){
+		if((eq = strchr(var, '=')) == nil)
+			continue;
+		*eq = '\0';
+		infoadd(info, var, eq + 1);
 	}
-	for(i = 0; (var = strsep(&query, "&")); i++){
-		if(i+1 >= LEN(cgivars)){
-			cgierror = "query string has too many vars";
-			return -1;
-		}
-		cgivars[i] = var;
-	}
-	cgivars[i] = nil;
-
-	done = 1;
-	return 0;
+	infosort(info);
+	return info;
 }
 
-char *
-cgiquery(char const *key)
+Info *
+cgiget(void)
 {
-	size_t i;
-	char **vp, *eq;
+	static Info *info = nil;
+	char *query;
 
-	if(init() == -1)
-		return nil;
+	if(info)
+		return info;
+	if((query = getenv("QUERY_STRING")) == nil)
+		err(1, "no $QUERY_STRING");
+	return info = cgiinfo(query);
+}
 
-	for(vp = cgivars; *vp; vp++){
-		if((eq = strchr(*vp, '=')) == nil){
-			if(strcmp(*vp, key) == 0)
-				return "";
-		}else if(strncmp(*vp, key, eq-*vp) == 0){
-			return eq + 1;
-		}
-	}
-	cgierror = "no such key in query string";
+Info *
+cgipost(void)
+{
 	return nil;
-}
-
-long long
-cgiquerynum(char const *key, long long min, long long max, char const **errstr)
-{
-	char *val;
-	long long num;
-
-	*errstr = "parameter not found";
-	if((val = cgiquery(key)) == nil)
-		return 0;
-	num = strtonum(val, min, max, errstr);
-	cgierror = *errstr;
-	*errstr = nil;
-	return num;
 }
 
 void
 cgihead(void)
 {
 	fputs("Content-Type: text/html\n\n", stdout);
+}
+
+void
+cgierror(int code, char *fmt, ...)
+{
+	va_list va;
+	char msg[1024];
+
+	va_start(va, fmt);
+        vsnprintf(msg, sizeof msg, fmt, va);
+	va_end(va);
+	fprintf(stdout, "Status: %d %s\n", code, msg);
+	fprintf(stdout, "Content-Type: text/plain\n");
+	fprintf(stdout, "\n");
+	fprintf(stdout, "Error %d: %s\n", code, msg);
+	exit(0);
+}
+
+void
+cgiredir(int code, char *url)
+{
+	fprintf(stdout, "Status: %d redirecting\n", code);
+	fprintf(stdout, "Location: %s\n", url);
+	fprintf(stdout, "Content-Type: text/plain\n");
+	fprintf(stdout, "\n");
+	fprintf(stdout, "redirecting to %s...\n", url);
+	exit(0);
 }

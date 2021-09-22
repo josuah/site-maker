@@ -63,7 +63,7 @@ nav > a:hover {
 	line-height: 0em;
 }
 
-.img {
+.img, .item {
 	display: block;
 	margin: 10px auto;
 	padding: 10px;
@@ -80,6 +80,28 @@ nav > a:hover {
 
 .img > * {
 	width: 100%;
+}
+
+main {
+	overflow: auto;
+}
+
+.item {
+	overflow: auto;
+	float: left;
+	margin: 5px;
+}
+
+.item img {
+	width: 300px;
+}
+
+.item pre {
+	margin-left: 2ch;
+}
+
+.item {
+	text-decoration: none;
 }
 
 h1, h2, h3 {
@@ -104,6 +126,10 @@ aside a {
 	text-decoration: none;
 }
 
+pre {
+	white-space: pre-wrap;
+	font-family: sans-serif;
+}
 </style>
 
 <aside>
