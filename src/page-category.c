@@ -18,9 +18,10 @@ int
 main(void)
 {
 	struct dirent **dlist, **dp;
-	Info *info;
-	int n, i;
-	char path1[256], path2[256], *d;
+	Info *in0, *in1, *in2;
+	int n;
+	size_t cat;
+	char path[128], *d;
 	char const *errstr;
 
 	if(unveil("html", "r") == -1)
@@ -30,35 +31,48 @@ main(void)
 	if(pledge("stdio rpath", NULL) == -1)
 		err(1, "pledge stdio rpath");
 
-	htmltemplate("html/all.head.html", NULL);
-	htmltemplate("html/category.head.html", NULL);
+	cgihead();
 
-	n = cgiquerynum("cat", 1, CAT_MAX, &errstr);
+	if((in0 = infonew("data/info")) == NULL)
+		err(1, "parsing data/info");
+
+	cat = cgiquerynum("cat", 1, CAT_MAX, &errstr);
 	if(errstr)
 		err(1, "getting query var 'cat': %s", cgierror);
-	snprintf(path1, sizeof path1, "data/cat%zu", n);
 
-	if((n = scandir(path1, &dlist, isitem, NULL)) == -1)
-		err(1, "reading data directory");
+	snprintf(path, sizeof path, "data/cat%zu", cat);
+	if((n = scandir(path, &dlist, isitem, NULL)) == -1)
+		err(1, "reading %s/", path);
+
+	snprintf(path, sizeof path, "data/cat%zu/info", cat);
+	if((in1 = infonew(path)) == NULL)
+		err(1, "parsing %s", path); 
+
+	htmltemplate("html/all.head.html", in1, in0, NULL);
+	htmltemplate("html/category.head.html", in1, in0, NULL);
+
 	for(dp = dlist; n > 0; n--, dp++){
 		d = (*dp)->d_name;
-		snprintf(path2, sizeof path2, "%s/%s/info", path1, d);
-		if((info = infoopen(path2)) == NULL)
-			err(1, "parsing %s", path2); 
-		if(infoset(info, "item", d + strcspn(d, "0123456789")) == -1)
+
+		snprintf(path, sizeof path, "data/cat%zu/%s/info", cat, d);
+		if((in2 = infonew(path)) == NULL)
+			err(1, "parsing %s", path); 
+
+		if(infoset(in2, "item", d + strcspn(d, "0123456789")) == -1)
 			err(1, "infoset");
-		for(i = 0; i < info->len; i++){
-			InfoRow *r = info->vars + i;
-			warn("var%d=%s=%s", i, r->key, r->val);
-		}
-		htmltemplate("html/category.item.html", info);
+
+		htmltemplate("html/category.item.html", in2, in1, in0, NULL);
+
+		infofree(in2);
 		free(*dp);
 	}
-	free(dlist);
-	infoclose(info);
 
-	htmltemplate("html/category.foot.html", NULL);
-	htmltemplate("html/all.foot.html", NULL);
+	free(dlist);
+	infofree(in1);
+	infofree(in0);
+
+	htmltemplate("html/category.foot.html", in1, in0, NULL);
+	htmltemplate("html/all.foot.html", in1, in0, NULL);
 
 	return 0;
 }

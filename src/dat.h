@@ -12,6 +12,5 @@ struct Info
 {
 	char *buf, *text;
 	size_t len;
-	int sorted;
 	InfoRow *vars;
 };

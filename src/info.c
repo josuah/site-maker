@@ -13,20 +13,11 @@ cmp(void const *v1, void const *v2)
 	return strcasecmp(r1->key, r2->key);
 }
 
-void
-sort(Info *info)
-{
-	if(!info->sorted)
-		qsort(info->vars, info->len, sizeof *info->vars, cmp);
-	info->sorted = 1;
-}
-
 static int
 add(Info *info, char *key, char *val)
 {
 	void *mem;
 
-	info->sorted = 0;
 	info->len++;
 	if((mem = realloc(info->vars, info->len * sizeof *info->vars)) == NULL)
 		return -1;
@@ -39,13 +30,13 @@ add(Info *info, char *key, char *val)
 char *
 infoget(Info *info, char *key)
 {
-	InfoRow *r, query = { .key = key };
+	InfoRow *r, q = { .key = key };
 
 	if(info == NULL)
 		return NULL;
-	r = bsearch(&query, info->vars, info->len, sizeof *info->vars, cmp);
-	warn("%s: query=%s result=%p", __func__, key, r);
-	return r == NULL ? NULL : r->val;
+	if((r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp)))
+		return r->val;
+	return cgiquery(key);
 }
 
 /*
@@ -64,20 +55,22 @@ infoset(Info *info, char *key, char *val)
 		return 0;
 	}
 	e = add(info, key, val);
-	sort(info);
+	qsort(info->vars, info->len, sizeof *info->vars, cmp);
 	return e;
 }
 
 Info *
-infoopen(char *path)
+infonew(char *path)
 {
-	Info *info = NULL;
+	Info *info;
 	char *buf = NULL, *line = NULL, *tail, *key;
 	void *mem;
 
-	if((tail = buf = fopenread(path)) == NULL)
+	if((info = calloc(sizeof *info, 1)) == NULL)
 		goto Err;
-	if((info = calloc(1, sizeof *info)) == NULL)
+	memset(info, 0, sizeof *info);
+
+	if((tail = buf = fopenread(path)) == NULL)
 		goto Err;
 	while((line = strsep(&tail, "\n")) != NULL && tail != NULL){
 		if(line[0] == '\0')
@@ -90,16 +83,16 @@ infoopen(char *path)
 	}
 	if(add(info, "Text", line) == -1)
 		goto Err;
-	sort(info);
+	qsort(info->vars, info->len, sizeof *info->vars, cmp);
 	return info;
 Err:
 	free(buf);
-	infoclose(info);
+	infofree(info);
 	return NULL;
 }
 
 void
-infoclose(Info *info)
+infofree(Info *info)
 {
 	free(info->buf);
 	free(info);

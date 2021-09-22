@@ -1,8 +1,9 @@
 #include <dirent.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -62,11 +63,16 @@ next(char *head, char **tail)
 	return beg + strlen("{{");
 }
 
+/*
+ * takes a list of (Info *) arguments by order of precedence
+ */
 void
-htmltemplate(char *htmlpath, Info *info)
+htmltemplate(char *htmlpath, ...)
 {
-	size_t sz = 0;
+	va_list va;
+	Info *info;
 	FILE *fp = NULL;
+	size_t sz = 0;
 	char *line = NULL, *head, *tail, *param, *val;
 
 	if((fp = fopen(htmlpath, "r")) == NULL)
@@ -76,11 +82,18 @@ htmltemplate(char *htmlpath, Info *info)
 		head = tail = line;
 		while((param = next(head, &tail)) != NULL){
 			fputs(head, stdout);
-			if((val = infoget(info, param)) == NULL
-			&& (val = cgiquery(param)) == NULL)
+
+			va_start(va, htmlpath);
+			while((info = va_arg(va, Info *)) != NULL)
+				if((val = infoget(info, param)) != NULL)
+					break;
+			va_end(va);
+
+			if(val == NULL && (val = cgiquery(param)) == NULL)
 				fprintf(stdout, "{{error:%s}}", param);
 			else
 				htmlprint(val);
+
 			head = tail;
 		}
 		fputs(tail, stdout);

@@ -4,12 +4,13 @@
 void htmlprint(char *);
 void htmlcat(char *);
 void htmlcategories(void);
-void htmltemplate(char *, Info *);
+void htmltemplate(char *, ...);
 
 /* cgi */
 extern char const *cgierror;
 char *cgiquery(char const *);
 long long cgiquerynum(char const *, long long, long long, char const **);
+void cgihead(void);
 
 /* util */
 extern char *arg0;
@@ -20,10 +21,11 @@ void warnx(char const *, ...);
 char *strsep(char **, char const *);
 long long strtonum(char const *, long long, long long, char const **);
 char *fopenread(char const *);
+void isort(void *, size_t, size_t, int (*)(void const *, void const *));
 
 /* info */
-Info *infoopen(char *);
-void infoclose(Info *);
+Info *infonew(char *);
+void infofree(Info *);
 int infoset(Info *, char *, char *);
 char *infoget(Info *, char *);
 void infosort(Info *);

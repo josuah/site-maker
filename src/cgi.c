@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -67,4 +68,10 @@ cgiquerynum(char const *key, long long min, long long max, char const **errstr)
 	cgierror = *errstr;
 	*errstr = NULL;
 	return num;
+}
+
+void
+cgihead(void)
+{
+	fputs("Content-Type: text/html\n\n", stdout);
 }
