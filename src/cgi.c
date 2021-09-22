@@ -17,7 +17,7 @@ init(void)
 	if(done)
 		return 0;
 
-	if((query = getenv("QUERY_STRING")) == NULL){
+	if((query = getenv("QUERY_STRING")) == nil){
 		cgierror = "$QUERY_STRING is not set";
 		return -1;
 	}
@@ -28,7 +28,7 @@ init(void)
 		}
 		cgivars[i] = var;
 	}
-	cgivars[i] = NULL;
+	cgivars[i] = nil;
 
 	done = 1;
 	return 0;
@@ -41,10 +41,10 @@ cgiquery(char const *key)
 	char **vp, *eq;
 
 	if(init() == -1)
-		return NULL;
+		return nil;
 
-	for(vp = cgivars; *vp != NULL; vp++){
-		if((eq = strchr(*vp, '=')) == NULL){
+	for(vp = cgivars; *vp; vp++){
+		if((eq = strchr(*vp, '=')) == nil){
 			if(strcmp(*vp, key) == 0)
 				return "";
 		}else if(strncmp(*vp, key, eq-*vp) == 0){
@@ -52,7 +52,7 @@ cgiquery(char const *key)
 		}
 	}
 	cgierror = "no such key in query string";
-	return NULL;
+	return nil;
 }
 
 long long
@@ -62,11 +62,11 @@ cgiquerynum(char const *key, long long min, long long max, char const **errstr)
 	long long num;
 
 	*errstr = "parameter not found";
-	if((val = cgiquery(key)) == NULL)
+	if((val = cgiquery(key)) == nil)
 		return 0;
 	num = strtonum(val, min, max, errstr);
 	cgierror = *errstr;
-	*errstr = NULL;
+	*errstr = nil;
 	return num;
 }
 

@@ -1,3 +1,4 @@
-/src/page-*[!.]?
+/src/*[!.]?
 /src/*.o
+/cgi/*
 /data/**

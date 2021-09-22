@@ -1,0 +1,120 @@
+<!doctype html>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="initial-scale=1.0">
+<style>
+
+html {
+	background-attachment: fixed;
+	background-image: linear-gradient(var(--bg-grad-1), var(--bg-grad-2));
+}
+
+body {
+	color: var(--fg-color);
+
+	display: block;
+	margin: auto;
+	padding: 0 10%;
+	padding-bottom: 150px;
+	line-height: 1.3em;
+
+	font-size: 0.44cm;
+	font-family: sans-serif;
+
+	background-image: url('/img/pattern.png');
+	background-size: 70px;
+	background-repeat: repeat-x;
+	background-position: bottom;
+}
+
+body > * {
+	max-width: 1000px;
+	margin: 30px auto;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+header img {
+	margin: auto;
+	display: block;
+}
+
+nav {
+	text-align: center;
+}
+
+nav > a {
+	border-top: solid 1px rgba(0,0,0,0);
+	border-bottom: solid 1px rgba(0,0,0,0);
+	text-decoration: none;
+	display: inline-block;
+}
+
+nav > a:hover {
+	border-top: solid 1px;
+	border-bottom: solid 1px;
+}
+
+.img, header img {
+	max-width: calc(100% - 20px - 2px);
+}
+
+.img {
+	width: 500px;
+	line-height: 0em;
+}
+
+.img {
+	display: block;
+	margin: 10px auto;
+	padding: 10px;
+	border: solid 1px #76b;
+}
+
+.img:target {
+	width: 800px;
+}
+
+.img:target, .img:hover {
+	background-color: var(--bg-color);
+}
+
+.img > * {
+	width: 100%;
+}
+
+h1, h2, h3 {
+	margin-top: 3em;
+}
+
+a {
+	color: inherit;
+}
+
+aside {
+	top: 0;
+	left: 10%;
+	margin-bottom: 6em;
+	line-height: 1.8em;
+}
+
+aside a {
+	display: inline-block;
+	margin: 10px;
+	border-top: solid 3px;
+	text-decoration: none;
+}
+
+</style>
+
+<aside>
+<a style="border-color:#e8e8e8;" href="https://www.metairies.org/">Home</a>
+・
+Association Miki
+<a style="border-color:#664466;" href="https://kyudo.metairies.org/">Kyudō 弓道</a>
+<a style="border-color:#ffaadd;" href="https://ikebana.metairies.org/">Ikebana 生け花</a>
+<a style="border-color:#bbffaa;" href="https://sado.metairies.org/">Sadō 茶道</a>
+・
+Artisanat
+<a style="border-color:#324670;" href="https://atelier.metairies.org/">Atelier Fu</a>
+<a style="border-color:#324670;" href="https://shop.metairies.org/">Boutique</a>
+</aside>

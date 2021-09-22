@@ -1,5 +1,7 @@
-BIN = src/page-home src/page-item src/page-category
+BIN = src/show
 OBJ = src/html.o src/util.o src/cgi.o src/info.o
+
+LDFLAGS = --static
 
 all: ${BIN}
 
@@ -7,12 +9,12 @@ all: ${BIN}
 	${CC} -c ${CFLAGS} -o $@ $<
 
 ${BIN}: ${BIN:=.o} ${OBJ}
-	${CC} -o $@ $@.o ${OBJ}
+	${CC} -o $@ ${LDFLAGS} $@.o ${OBJ}
 
-data cgi:
+cgi:
 	mkdir -p $@
 
-install: ${BIN} cgi data
+install: ${BIN} cgi
 	cp ${BIN} cgi
 
 clean:

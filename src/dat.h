@@ -1,4 +1,5 @@
 #define CAT_MAX 1000
+#define nil ((void *)0)
 
 typedef struct Info Info;
 typedef struct InfoRow InfoRow;
@@ -10,7 +11,10 @@ struct InfoRow
 
 struct Info
 {
-	char *buf, *text;
-	size_t len;
+	char *buf;
+
 	InfoRow *vars;
+	size_t len;
+
+	Info *next;
 };

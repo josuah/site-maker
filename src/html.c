@@ -1,5 +1,4 @@
 #include <dirent.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,19 +29,52 @@ htmlprint(char *s)
 	}
 }
 
-void
-htmlcat(char *path)
+static int
+iscat(struct dirent const *de)
 {
-	FILE *fp;
-	char c;
+	return strncmp(de->d_name, "cat", 3) == 0;
+}
 
-	if((fp = fopen(path, "r")) == NULL)
-		err(1, "opening %s", path);
-	while((c = fgetc(fp)) != EOF)
-		fputc(c, stdout);
-	if(ferror(fp))
-		err(1, "dumping %s", path);
-	fclose(fp);
+static int
+isitem(struct dirent const *de)
+{
+	return strncmp(de->d_name, "item", 4) == 0;
+}
+
+static int
+isimg(struct dirent const *de)
+{
+	return strncmp(de->d_name, "img", 3) == 0;
+}
+
+void
+htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *))
+{
+	struct dirent **dlist, **dp;
+	char *d, path[128];
+	char const *errstr;
+	size_t cat, item;
+	int n;
+
+	cat = cgiquerynum("cat", 1, CAT_MAX, &errstr);
+	item = cgiquerynum("cat", 1, CAT_MAX, &errstr);
+
+	snprintf(path, sizeof path, fmt, cat, item);
+	if((n = scandir(path, &dlist, fn, nil)) == -1)
+		err(1, "reading data directory");
+	for(dp = dlist; n > 0; n--, dp++){
+		d = (*dp)->d_name;
+
+		if(infoset(info, "elem", d + strcspn(d, "0123456789")) == -1)
+			err(1, "infoset");
+
+		snprintf(path, sizeof path, "html/elem.%s.html", name);
+		htmltemplate(path, info);
+
+		free(*dp);
+	}
+
+	free(dlist);
 }
 
 /*
@@ -55,9 +87,9 @@ next(char *head, char **tail)
 {
 	char *beg, *end;
 
-	if((beg = strstr(head, "{{")) == NULL
-	|| (end = strstr(beg, "}}")) == NULL)
-		return NULL;
+	if((beg = strstr(head, "{{")) == nil
+	|| (end = strstr(beg, "}}")) == nil)
+		return nil;
 	*beg = *end = '\0';
 	*tail = end + strlen("}}");
 	return beg + strlen("{{");
@@ -67,34 +99,37 @@ next(char *head, char **tail)
  * takes a list of (Info *) arguments by order of precedence
  */
 void
-htmltemplate(char *htmlpath, ...)
+htmltemplate(char *htmlpath, Info *info)
 {
-	va_list va;
-	Info *info;
-	FILE *fp = NULL;
+	FILE *fp = nil;
 	size_t sz = 0;
-	char *line = NULL, *head, *tail, *param, *val;
+	char *line = nil, *head, *tail, *param, *val;
 
-	if((fp = fopen(htmlpath, "r")) == NULL)
+	if((fp = fopen(htmlpath, "r")) == nil)
 		err(1, "opening template %s", htmlpath);
 
 	while(getline(&line, &sz, fp) > 0){
 		head = tail = line;
-		while((param = next(head, &tail)) != NULL){
+		for(; (param = next(head, &tail)) != nil; head = tail){
 			fputs(head, stdout);
 
-			va_start(va, htmlpath);
-			while((info = va_arg(va, Info *)) != NULL)
-				if((val = infoget(info, param)) != NULL)
-					break;
-			va_end(va);
+			if(strcmp(param, "list:cat") == 0){
+				htmllist(info, "cat", "data", iscat);
+				continue;
+			}
+			if(strcmp(param, "list:item") == 0){
+				htmllist(info, "item", "data/cat%zu", isitem);
+				continue;
+			}
+			if(strcmp(param, "list:img") == 0){
+				htmllist(info, "img", "data/cat%zu/item%zu", isimg);
+				continue;
+			}
 
-			if(val == NULL && (val = cgiquery(param)) == NULL)
+			if((val = infoget(info, param)) == nil)
 				fprintf(stdout, "{{error:%s}}", param);
 			else
 				htmlprint(val);
-
-			head = tail;
 		}
 		fputs(tail, stdout);
 	}

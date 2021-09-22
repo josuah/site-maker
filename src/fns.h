@@ -2,9 +2,7 @@
 
 /* html */
 void htmlprint(char *);
-void htmlcat(char *);
-void htmlcategories(void);
-void htmltemplate(char *, ...);
+void htmltemplate(char *, Info *);
 
 /* cgi */
 extern char const *cgierror;
@@ -24,8 +22,9 @@ char *fopenread(char const *);
 void isort(void *, size_t, size_t, int (*)(void const *, void const *));
 
 /* info */
-Info *infonew(char *);
+Info *infonew(Info *, char *);
 void infofree(Info *);
+Info *infopop(Info *);
 int infoset(Info *, char *, char *);
 char *infoget(Info *, char *);
-void infosort(Info *);
+Info *infodefault(void);

@@ -13,7 +13,7 @@ char *arg0;
 static void
 _log(char const *fmt, va_list va, int err)
 {
-	if (arg0 != NULL)
+	if (arg0)
 		fprintf(stderr, "%s: ", arg0);
 	vfprintf(stderr, fmt, va);
 	fprintf(stderr, err ? ": %s\n" : "\n", strerror(err));
@@ -63,14 +63,14 @@ strsep(char **sp, char const *sep)
 {
         char *s, *prev;
 
-        if(*sp == NULL)
-                return NULL;
+        if(*sp == nil)
+                return nil;
 
-        for(s = prev = *sp; strchr(sep, *s) == NULL; s++)
+        for(s = prev = *sp; strchr(sep, *s) == nil; s++)
                 continue;
 
         if(*s == '\0'){
-                *sp = NULL;
+                *sp = nil;
         }else{
                 *s = '\0';
                 *sp = s + 1;
@@ -88,23 +88,23 @@ strtonum(char const *s, long long min, long long max, char const **errstr)
 	errno = 0;
 	ll = strtoll(s, &end, 10);
 	if ((errno == ERANGE && ll == LLONG_MIN) || ll < min) {
-		if (errstr != NULL)
+		if (errstr)
 			*errstr = "too small";
 		return 0;
 	}
 	if ((errno == ERANGE && ll == LLONG_MAX) || ll > max) {
-		if (errstr != NULL)
+		if (errstr)
 			*errstr = "too large";
 		return 0;
 	}
 	if (errno == EINVAL || *end != '\0') {
-		if (errstr != NULL)
+		if (errstr)
 			*errstr = "invalid";
 		return 0;
 	}
 	assert(errno == 0);
-	if (errstr != NULL)
-		*errstr = NULL;
+	if (errstr)
+		*errstr = nil;
 	return ll;
 }
 
@@ -114,13 +114,13 @@ fopenread(char const *path)
 	FILE *fp;
 	size_t sz;
 	int c;
-	char *buf = NULL;
+	char *buf = nil;
 	void *mem;
 
-	if((fp = fopen(path, "r")) == NULL)
-		return NULL;
+	if((fp = fopen(path, "r")) == nil)
+		return nil;
 	for(sz = 2;; sz++){
-		if((mem = realloc(buf, sz)) == NULL)
+		if((mem = realloc(buf, sz)) == nil)
 			goto Err;
 		buf = mem;
 		if((c = fgetc(fp)) == EOF)
@@ -134,5 +134,5 @@ fopenread(char const *path)
 Err:
 	fclose(fp);
 	free(buf);
-	return NULL;
+	return nil;
 }
