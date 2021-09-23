@@ -1,12 +1,12 @@
 
 <article>
-	<form method="post" action="/cgi/admin-edit-cat?cat={{Elem}}">
+	<form method="post" action="/cgi/admin?action=editinfo&amp;ref={{ref}}">
 		<table>
 			<tr><td>Name:</td><td><input name="Cat-Name" value="{{Cat-Name}}"/></td></tr>
 			<tr><td>Text:</td><td><textarea name="Text" cols="100" rows="5">{{Text}}</textarea></td></tr>
 			<tr><td></td><td>
 				<button>edit</button>
-				<button formaction="/cgi/admin-delete-cat?cat={{Elem}}" style="float:right;">delete</button>
+				<button formaction="/cgi/admin?action=delcat&ref={{ref}}" style="float:right;">delete</button>
 			</td></tr>
 		</table>
 	</form>

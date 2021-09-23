@@ -1,11 +1,11 @@
 <h2>Edit categories</h2>
 
-{{list:admincat}}
+{{admincat */info}}
 
 <h2>Add new category</h2>
 
 <article>
-	<form method="post" action="/cgi/admin-add-cat">
+	<form method="post" action="/cgi/admin?action=addinfo&amp;ref=cat">
 		<table>
 			<tr><td>Name:</td><td><input name="Cat-Name"/></td></tr>
 			<tr><td>Text:</td><td><textarea name="Text" cols="100" rows="5"></textarea></td></tr>

@@ -1,4 +1,24 @@
-#define LEN(x) (sizeof(x) / sizeof(*(x)))
+#define CAT_MAX 1000
+#define nil ((void *)0)
+#define L(x) (sizeof(x) / sizeof(*(x)))
+
+typedef struct Info Info;
+typedef struct InfoRow InfoRow;
+
+struct InfoRow
+{
+	char *key, *val;
+};
+
+struct Info
+{
+	char *buf;
+
+	InfoRow *vars;
+	size_t len;
+
+	Info *next;
+};
 
 /* util */
 extern char *arg0;
@@ -27,7 +47,6 @@ void infosort(Info *);
 void infofree(Info *);
 Info *infopop(Info *);
 void infoset(Info *, char *, char *);
-char * infomiss(Info *, char **);
 char *infostr(Info *, char *);
 long long infonum(Info *, char *, long long, long long);
 Info *inforead(Info *, char *);
@@ -36,3 +55,6 @@ int infowrite(Info *, char *);
 /* html */
 void htmlprint(char *);
 void htmltemplate(char *, Info *);
+
+/* fields */
+extern char *catfields[2];

@@ -5,8 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "dat.h"
-#include "fns.h"
+#include "def.h"
 
 /*
  * Simple key-value storage with a fallback mechanism:
@@ -65,15 +64,6 @@ infostr(Info *info, char *key)
 	if((r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp)))
 		return r->val;
 	return infostr(info->next, key);
-}
-
-char *
-infomiss(Info *info, char **need)
-{
-	for(; *need; need++)
-		if(infostr(info, *need) == nil)
-			return *need;
-	return nil;
 }
 
 long long

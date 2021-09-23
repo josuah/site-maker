@@ -1,11 +1,11 @@
-<h2>Edit item of cat{{cat}}</h2>
+<h2>Edit item of {{ref}}</h2>
 
-{{list:adminitem}}
+{{adminitem */info}}
 
-<h2>Add item to cat{{cat}}</h2>
+<h2>Add item to {{ref}}</h2>
 
 <article>
-	<form method="post" action="/cgi/admin-add-item">
+	<form method="post" action="/cgi/admin?action=addinfo&ref={{ref}}">
 		<table>
 			<tr><td>Name:</td><td><input name="Name" type="text"/></td></tr>
 			<tr><td>Price:</td><td><input name="Price" type="number" min="0"/></td></tr>

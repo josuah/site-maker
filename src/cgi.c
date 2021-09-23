@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dat.h"
-#include "fns.h"
+#include "def.h"
 
 /* https://pubs.opengroup.org/onlinepubs/9699919799/functions/exec.html */
 extern char **environ;

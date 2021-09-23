@@ -5,8 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include "dat.h"
-#include "fns.h"
+#include "def.h"
 
 char *arg0;
 

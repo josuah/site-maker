@@ -2,15 +2,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dat.h"
-#include "fns.h"
+#include "def.h"
 
 int
 main(void)
 {
 	Info *info;
-	size_t cat, item;
-	char path[512], *page;
+	char path[512], *ref, *page, *sl;
 
 	if(chdir("..") == -1)
 		err(1, "chdir ..");
@@ -21,27 +19,25 @@ main(void)
 		err(1, "pledge stdio rpath");
 
 	info = cgiget(nil);
-	cat = infonum(info, "cat", 1, 100000);
-	item = infonum(info, "item", 1, 100000);
-	page = infostr(info, "page");
+
+	if((ref = infostr(info, "ref")) == nil)
+		err(1, "no $ref");
+	if((page = infostr(info, "page")) == nil)
+		err(1, "no $page");
 
 	if((info = inforead(info, "data/info")) == nil)
-		err(1, "inforead %s", "data/info");
-	if(cat == 0)
-		goto Done;
-	snprintf(path, sizeof path, "data/cat%zu/info", cat);
+		err(1, "parsing %s", path);
+	for(sl = ref; (sl = strchr(sl, '/')); sl++){
+		*sl = '\0';
+		snprintf(path, sizeof path, "%s/info", ref);
+		if((info = inforead(info, path)) == nil)
+			err(1, "parsing %s", path);
+		*sl = '/';
+	}
+	snprintf(path, sizeof path, "%s/info", ref);
 	if((info = inforead(info, path)) == nil)
-		err(1, "inforead %s", path);
-	if(item == 0)
-		goto Done;
-	snprintf(path, sizeof path, "data/cat%zu/item%zu/info", cat, item);
-	if((info = inforead(info, path)) == nil)
-		err(1, "inforead %s", path);
-Done:
-	if(page == nil)
-		err(1, "no $page: %s", infoerr);
-	if(strchr(page, '/') != nil || page[0] == '.')
-		errx(1, "invalid page name: %s", page);
+		err(1, "parsing %s", path);
+
 	snprintf(path, sizeof path, "html/page.%s.html", page);
 
 	cgihead();

@@ -1,11 +1,11 @@
-#include <dirent.h>
-#include <unistd.h>
+#include <errno.h>
+#include <glob.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include "dat.h"
-#include "fns.h"
+#include <unistd.h>
+#include "def.h"
 
 void
 htmlprint(char *s)
@@ -30,66 +30,46 @@ htmlprint(char *s)
 	}
 }
 
-static int
-iscat(struct dirent const *de)
-{
-	return strncmp(de->d_name, "cat", 3) == 0;
-}
-
-static int
-isitem(struct dirent const *de)
-{
-	return strncmp(de->d_name, "item", 4) == 0;
-}
-
-static int
-isimg(struct dirent const *de)
-{
-	return strncmp(de->d_name, "img", 3) == 0;
-}
-
 static void
-list(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), int infofile)
+list(Info *info, char *dir, char *expr, char *page)
 {
 	Info tmp;
 	InfoRow row;
-	struct dirent **dlist, **dp;
-	char *d, path[128];
-	size_t cat, item;
-	int n;
+	glob_t gl;
+	char path[128], **p, *sl;
+	int pop;
 
-	cat = infonum(info, "cat", 1, 10000);
-	item = infonum(info, "item", 1, 10000);
+	snprintf(path, sizeof path, "%s/%s", dir, expr);
+	warn("glob %s", path);
+	if(glob(path, 0, nil, &gl) != 0)
+		err(1, "globbing on %s: %s", path, strerror(errno));
+	warn("glob done %p", gl.gl_pathv);
 
-	snprintf(path, sizeof path, fmt, cat, item);
-	if((n = scandir(path, &dlist, fn, nil)) == -1)
-		err(1, "reading data directory");
-	for(dp = dlist; n > 0; n--, dp++){
-		d = (*dp)->d_name;
-
-		if(infofile){
-			snprintf(path, sizeof path, fmt, cat, item);
-			snprintf(path, sizeof path, "%s/%s/info", path, d);
-			if((info = inforead(info, path)) == nil)
-				err(1, "parsing %s", path);
+	for(p = gl.gl_pathv; *p; p++){
+		warn("glob loop", path);
+		if(strcmp(sl = strrchr(*p, '/'), "/info") == 0){
+			if((info = inforead(info, *p)) == nil)
+				err(1, "parsing %s", *p);
+			*sl = '\0';
+			pop = 1;
+		}else{
+			pop = 0;
 		}
 
-		row.key = "elem";
-		row.val = d + strcspn(d, "0123456789");
+		row.key = "ref";
+		row.val = *p;
 		tmp.vars = &row;
 		tmp.next = info;
 		tmp.len = 1;
 		tmp.buf = nil;
 
-		snprintf(path, sizeof path, "html/elem.%s.html", name);
+		snprintf(path, sizeof path, "html/elem.%s.html", page);
 		htmltemplate(path, &tmp);
 
-		if(infofile)
+		if(pop)
 			info = infopop(info);
-		free(*dp);
 	}
-
-	free(dlist);
+	globfree(&gl);
 }
 
 /*
@@ -118,7 +98,7 @@ htmltemplate(char *htmlpath, Info *info)
 {
 	FILE *fp = nil;
 	size_t sz = 0;
-	char *line = nil, *head, *tail, *param, *val;
+	char *line = nil, *head, *tail, *param, *sp, *ref, *val;
 
 	if((fp = fopen(htmlpath, "r")) == nil)
 		err(1, "opening template %s", htmlpath);
@@ -128,26 +108,20 @@ htmltemplate(char *htmlpath, Info *info)
 		for(; (param = next(head, &tail)) != nil; head = tail){
 			fputs(head, stdout);
 
-			if(strcmp(param, "list:cat") == 0){
-				list(info, "cat", "data", iscat, 1);
+			if(strcasecmp(param, "nav") == 0){
+				list(info, "data", "*/info", "nav");
 
-			}else if(strcmp(param, "list:item") == 0){
-				list(info, "item", "data/cat%zu", isitem, 1);
+			}else if((sp = strchr(param, ' '))){
+				*sp = '\0';
+				if((ref = infostr(info, "ref")) == nil)
+					err(1, "no $ref");
+				list(info, ref, sp + 1, param);
 
-			}else if(strcmp(param, "list:img") == 0){
-				list(info, "img", "data/cat%zu/item%zu", isimg, 0);
-
-			}else if(strcmp(param, "list:admincat") == 0){
-				list(info, "admincat", "data", iscat, 1);
-
-			}else if(strcmp(param, "list:adminitem") == 0){
-				list(info, "adminitem", "data/cat%zu", isitem, 1);
-
-			}else if((val = infostr(info, param)) == nil){
-				fprintf(stdout, "{{error:%s}}", param);
+			}else if((val = infostr(info, param))){
+				htmlprint(val);
 
 			}else{
-				htmlprint(val);
+				fprintf(stdout, "{{error:%s}}", param);
 			}
 		}
 		fputs(tail, stdout);

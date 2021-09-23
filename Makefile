@@ -1,4 +1,4 @@
-BIN = src/show src/admin-add-cat
+BIN = src/show src/admin
 OBJ = src/html.o src/util.o src/cgi.o src/info.o
 
 LDFLAGS = -static
