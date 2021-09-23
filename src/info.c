@@ -25,8 +25,7 @@
  * files...
  */
 
-char const *infoerr;
-
+char const *infoerr = "(no message)";
 #define Err(msg) { infoerr = msg; goto Err; }
 
 static int
@@ -66,6 +65,15 @@ infostr(Info *info, char *key)
 	if((r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp)))
 		return r->val;
 	return infostr(info->next, key);
+}
+
+char *
+infomiss(Info *info, char **need)
+{
+	for(; *need; need++)
+		if(infostr(info, *need) == nil)
+			return *need;
+	return nil;
 }
 
 long long
@@ -172,7 +180,6 @@ infowrite(Info *info, char *dst)
 	fclose(fp);
 	if(rename(path, dst) == -1)
 		Err("applying changes to info file");
-
 	return 0;
 Err:
 	if(fp)

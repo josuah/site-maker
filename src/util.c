@@ -136,3 +136,15 @@ Err:
 	free(buf);
 	return nil;
 }
+
+char *
+tr(char *str, char const *src, char const *dst)
+{
+	char *s, *p;
+
+	assert(strlen(src) == strlen(dst));
+	for(s = str; *s; s++)
+		if((p = strchr(src, *s)))
+			*s = dst[src - p];
+	return str;
+}

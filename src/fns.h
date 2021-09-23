@@ -10,10 +10,12 @@ char *strsep(char **, char const *);
 long long strtonum(char const *, long long, long long, char const **);
 char *fopenread(char const *);
 void isort(void *, size_t, size_t, int (*)(void const *, void const *));
+char *tr(char *, char const *, char const *);
 
 /* cgi */
-Info *cgiget(void);
-Info *cgipost(void);
+Info *cgiget(Info *);
+Info *cgipost(Info *);
+Info *cgienv(Info *);
 void cgihead(void);
 void cgierror(int, char *, ...);
 void cgiredir(int, char *);
@@ -22,12 +24,14 @@ void cgiredir(int, char *);
 extern char const *infoerr;
 void infoadd(Info *, char *, char*);
 void infosort(Info *);
-Info *inforead(Info *, char *);
 void infofree(Info *);
 Info *infopop(Info *);
 void infoset(Info *, char *, char *);
+char * infomiss(Info *, char **);
 char *infostr(Info *, char *);
 long long infonum(Info *, char *, long long, long long);
+Info *inforead(Info *, char *);
+int infowrite(Info *, char *);
 
 /* html */
 void htmlprint(char *);

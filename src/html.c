@@ -48,8 +48,8 @@ isimg(struct dirent const *de)
 	return strncmp(de->d_name, "img", 3) == 0;
 }
 
-void
-htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), int infofile)
+static void
+list(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), int infofile)
 {
 	Info tmp;
 	InfoRow row;
@@ -58,8 +58,8 @@ htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), in
 	size_t cat, item;
 	int n;
 
-	cat = infonum(cgiget(), "cat", 1, 10000);
-	item = infonum(cgiget(), "item", 1, 10000);
+	cat = infonum(info, "cat", 1, 10000);
+	item = infonum(info, "item", 1, 10000);
 
 	snprintf(path, sizeof path, fmt, cat, item);
 	if((n = scandir(path, &dlist, fn, nil)) == -1)
@@ -69,14 +69,12 @@ htmllist(Info *info, char *name, char *fmt, int (*fn)(struct dirent const *), in
 
 		if(infofile){
 			snprintf(path, sizeof path, fmt, cat, item);
-			strlcat(path, "/", sizeof path);
-			strlcat(path, d, sizeof path);
-			strlcat(path, "/info", sizeof path);
+			snprintf(path, sizeof path, "%s/%s/info", path, d);
 			if((info = inforead(info, path)) == nil)
 				err(1, "parsing %s", path);
 		}
 
-		row.key = name;
+		row.key = "elem";
 		row.val = d + strcspn(d, "0123456789");
 		tmp.vars = &row;
 		tmp.next = info;
@@ -131,22 +129,26 @@ htmltemplate(char *htmlpath, Info *info)
 			fputs(head, stdout);
 
 			if(strcmp(param, "list:cat") == 0){
-				htmllist(info, "cat", "data", iscat, 1);
-				continue;
-			}
-			if(strcmp(param, "list:item") == 0){
-				htmllist(info, "item", "data/cat%zu", isitem, 1);
-				continue;
-			}
-			if(strcmp(param, "list:img") == 0){
-				htmllist(info, "img", "data/cat%zu/item%zu", isimg, 0);
-				continue;
-			}
+				list(info, "cat", "data", iscat, 1);
 
-			if((val = infostr(info, param)) == nil)
+			}else if(strcmp(param, "list:item") == 0){
+				list(info, "item", "data/cat%zu", isitem, 1);
+
+			}else if(strcmp(param, "list:img") == 0){
+				list(info, "img", "data/cat%zu/item%zu", isimg, 0);
+
+			}else if(strcmp(param, "list:admincat") == 0){
+				list(info, "admincat", "data", iscat, 1);
+
+			}else if(strcmp(param, "list:adminitem") == 0){
+				list(info, "adminitem", "data/cat%zu", isitem, 1);
+
+			}else if((val = infostr(info, param)) == nil){
 				fprintf(stdout, "{{error:%s}}", param);
-			else
+
+			}else{
 				htmlprint(val);
+			}
 		}
 		fputs(tail, stdout);
 	}
