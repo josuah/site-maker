@@ -1,0 +1,12 @@
+<h2>Edit images of {{ref}}</h2>
+
+{{adminimg img*.jpg}}
+
+<h2>Add image to {{ref}}</h2>
+
+<form method="post" action="/cgi/admin?action=addimg&amp;ref={{ref}}/img" enctype="multipart/form-data">
+	<table>
+		<tr><td>File:</td><td><input name="File" type="file" min="0"/></td></tr>
+		<tr><td></td><td><button>add</button></td></tr>
+	</table>
+</form>

@@ -35,6 +35,7 @@ char *tr(char *, char const *, char const *);
 /* cgi */
 Info *cgiget(Info *);
 Info *cgipost(Info *);
+void cgifile(char *, size_t);
 Info *cgienv(Info *);
 void cgihead(void);
 void cgierror(int, char *, ...);

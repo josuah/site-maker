@@ -13,7 +13,7 @@ typedef struct Fn Fn;
 
 struct Fn {
 	char *name;
-	void (*fn)(Info *, char *);
+	Info *(*fn)(Info *, char *);
 };
 
 static size_t
@@ -37,13 +37,14 @@ newid(char *ref, char *suffix)
 	return 0;
 }
 
-static void
+static Info *
 addinfo(Info *info, char *ref)
 {
 	char *leaf; char path[128], dest[128];
 	pid_t pid;
 	size_t id;
 
+	info = cgipost(info);
 	pid = getpid();
 	id = newid(ref, "");
 	if((leaf = strrchr(ref, '/')))
@@ -56,7 +57,6 @@ addinfo(Info *info, char *ref)
 	mkdir(path, 0760);
 
 	snprintf(path, sizeof path, "tmp/%d/%s%zu/info", pid, leaf, id);
-	warn("info=%s", path);
 	if(infowrite(info, path))
 		cgierror(500, "writing info to %s: %s", path, strerror(errno));
 
@@ -67,23 +67,28 @@ addinfo(Info *info, char *ref)
 
 	snprintf(path, sizeof path, "tmp/%d", pid);
 	rmdir(path);
+
+	return info;
 }
 
-static void
+static Info *
 editinfo(Info *info, char *ref)
 {
 	char path[128];
 
+	info = cgipost(info);
+
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(infowrite(info, path))
 		cgierror(500, "writing info to %s: %s", path, strerror(errno));
+
+	return info;
 }
 
-static void
+static Info *
 delinfo(Info *info, char *ref)
 {
 	char path[1024];
-	(void)info;
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(unlink(path) == -1)
@@ -92,24 +97,36 @@ delinfo(Info *info, char *ref)
 	snprintf(path, sizeof path, "%s", ref);
 	if((rmdir(path)) == -1)
 		cgierror(500, "deleting %s: %s", path, strerror(errno));
+
+	return info;
 }
 
-static void
+static Info *
 addimg(Info *info, char *ref)
 {
-	(void)info;
-	(void)ref;
+	char path[256], dest[256];
+	size_t id;
+
+	cgifile(path, sizeof path);
+	id = newid(ref, ".jpg");
+
+	snprintf(dest, sizeof dest, "%s%zu%s", ref, id, ".jpg");
+	if(rename(path, dest) == -1)
+		cgierror(500, "%s -> %s: %s", path, dest, strerror(errno));
+
+	return info;
 }
 
-static void
+static Info *
 delimg(Info *info, char *ref)
 {
 	char path[1024];
-	(void)info;
 
 	snprintf(path, sizeof path, "%s", ref);
 	if(unlink(path) == -1)
 		cgierror(500, "deleting %s", ref);
+
+	return info;
 }
 
 static int
@@ -127,7 +144,7 @@ Fn fnmap[] = {
 int
 main(void)
 {
-	Info *info;
+	Info *info = nil;
 	char *ref, *url;
 	Fn fq, *fn;
 
@@ -139,19 +156,16 @@ main(void)
 	if(pledge("stdio rpath wpath cpath", nil))
 		err(1, "pledge");
 
-	info = cgipost(cgiget(nil));
+	info = cgiget(nil);
 
 	if((ref = infostr(info, "ref")) == nil)
 		cgierror(400, "no $ref");
 	if((fq.name = infostr(info, "action")) == nil)
 		cgierror(400, "no $action");
 
-	for(size_t i = 0; i < L(fnmap); i++)
-		warn("action=%s name=%s", fq.name, fnmap[i].name);
-
 	if ((fn = bsearch(&fq, fnmap, L(fnmap), sizeof *fnmap, cmp)) == nil)
 		cgierror(400, "action %s not found", fq.name);
-	fn->fn(info, ref);
+	info = fn->fn(info, ref);
 
 	if((url = getenv("HTTP_REFERER")) == nil)
 		url = "/";

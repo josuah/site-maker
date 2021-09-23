@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "def.h"
 
 #define HEX(x)(\
@@ -85,16 +86,46 @@ cgipost(Info *next)
 		errx(1, "no $CONTENT_LENGTH");
 	len = atoi(env);
 
+	if(strcasecmp(env, "application/x-www-form-urlencoded") != 0)
+		cgierror(400, "expecting application/x-www-form-urlencoded");
+
 	if((buf = calloc(len + 1, 1)) == nil)
 		err(1, "calloc");
 
 	fread(buf, len, 1, stdin);
 	if(ferror(stdin) || feof(stdin))
-		err(1, "reading POST data");
+		cgierror(500, "reading POST data");
+
+	if((env = getenv("HTTP_CONTENT_TYPE")) == nil)
+		cgierror(500, "no $Content-Type");
 
 	info = cgiinfo(next, buf);
 	info->buf = buf;
 	return info;
+}
+
+void
+cgifile(char *path, size_t len)
+{
+	FILE *fp;
+	pid_t pid;
+	int c;
+
+	pid = getpid();
+
+	snprintf(path, len, "tmp/%d", pid);
+	if(mkdir(path, 0775) == -1)
+		cgierror(500, "making temporary directory %s", path);
+
+	snprintf(path, len, "tmp/%d/file", pid);
+	if((fp = fopen(path, "w")) == nil)
+		cgierror(500, "opening temporary upload file %s", path);
+
+	while((c = fgetc(stdin)) != EOF)
+		fputc(c, fp);
+
+	if(ferror(stdin) || ferror(fp))
+		cgierror(500, "writing file to %s", path);
 }
 
 void
