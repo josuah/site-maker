@@ -45,8 +45,9 @@ addinfo(Info *info, char *ref)
 	size_t id;
 
 	pid = getpid();
-	leaf = ref + strcspn(ref, "/");
 	id = newid(ref, "");
+	if((leaf = strrchr(ref, '/')))
+		leaf++;
 
 	snprintf(path, sizeof path, "tmp/%d", pid);
 	mkdir(path, 0760);
@@ -55,6 +56,7 @@ addinfo(Info *info, char *ref)
 	mkdir(path, 0760);
 
 	snprintf(path, sizeof path, "tmp/%d/%s%zu/info", pid, leaf, id);
+	warn("info=%s", path);
 	if(infowrite(info, path))
 		cgierror(500, "writing info to %s: %s", path, strerror(errno));
 
@@ -85,11 +87,11 @@ delinfo(Info *info, char *ref)
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(unlink(path) == -1)
-		cgierror(500, "deleting %s", path);
+		cgierror(500, "deleting %s: %s", path, strerror(errno));
 
 	snprintf(path, sizeof path, "%s", ref);
 	if((rmdir(path)) == -1)
-		cgierror(500, "deleting %s", path);
+		cgierror(500, "deleting %s: %s", path, strerror(errno));
 }
 
 static void
@@ -117,13 +119,16 @@ cmp(void const *v1, void const *v2)
 }
 
 #define F(fn) { #fn, fn }
-Fn fnmap[] = { F(addinfo), F(addimg), F(editinfo), F(delinfo), F(delimg) };
+Fn fnmap[] = {
+	/* sorted for bearch */
+	F(addimg), F(addinfo), F(delimg), F(delinfo), F(editinfo)
+};
 
 int
 main(void)
 {
 	Info *info;
-	char *ref;
+	char *ref, *url;
 	Fn fq, *fn;
 
 	if(chdir("..") == -1)
@@ -141,11 +146,16 @@ main(void)
 	if((fq.name = infostr(info, "action")) == nil)
 		cgierror(400, "no $action");
 
+	for(size_t i = 0; i < L(fnmap); i++)
+		warn("action=%s name=%s", fq.name, fnmap[i].name);
+
 	if ((fn = bsearch(&fq, fnmap, L(fnmap), sizeof *fnmap, cmp)) == nil)
 		cgierror(400, "action %s not found", fq.name);
 	fn->fn(info, ref);
 
+	if((url = getenv("HTTP_REFERER")) == nil)
+		url = "/";
 	infofree(info);
-	cgiredir(307, "/cgi/show?page=admincat");
+	cgiredir(307, "%s", url);
 	return 0;
 }

@@ -1,0 +1,23 @@
+<h2>Edit home page</h2>
+
+<form method="post" action="/cgi/admin?action=editinfo&amp;ref={{ref}}">
+	<table>
+		<tr><td>Title:</td><td><input name="Title" value="{{Title}}"/></td></tr>
+		<tr><td>Text:</td><td><textarea name="Text" cols="100" rows="5">{{Text}}</textarea></td></tr>
+		<tr><td></td><td><button>edit</button></td></tr>
+	</table>
+</form>
+
+<h2>Edit categories</h2>
+
+{{admincat */info}}
+
+<h2>Add new category</h2>
+
+<form method="post" action="/cgi/admin?action=addinfo&amp;ref={{ref}}/cat">
+	<table>
+		<tr><td>Name:</td><td><input name="Cat-Name"/></td></tr>
+		<tr><td>Text:</td><td><textarea name="Text" cols="100" rows="5"></textarea></td></tr>
+		<tr><td></td><td><button>add</button></td></tr>
+	</table>
+</form>

@@ -7,9 +7,6 @@
 #include <string.h>
 #include "def.h"
 
-/* https://pubs.opengroup.org/onlinepubs/9699919799/functions/exec.html */
-extern char **environ;
-
 #define HEX(x)(\
 	((x) >= 'a' && (x) <= 'f') ? 10 + (x) - 'a' :\
 	((x) >= 'A' && (x) <= 'F') ? 10 + (x) - 'A' :\
@@ -78,36 +75,6 @@ cgiget(Info *next)
 }
 
 Info *
-cgienv(Info *next)
-{
-	static Info *info = nil;
-	char **envp, *env, *var, *eq;
-	size_t sz = 0, len;
-
-	if((info = calloc(sizeof *info, 1)) == nil)
-		err(1, "calloc");
-	for(envp = environ; *envp; envp++){
-		if(strncmp("HTTP_", *envp, strlen("HTTP_")) != 0)
-			continue;
-
-		env = *envp + strlen("HTTP_");
-		var = info->buf + sz;
-		len = strlen(env);
-
-		if((info->buf = realloc(info->buf, sz += len + 1)) == nil)
-			err(1, "realloc");
-		memmove(var, env, len + 1);
-
-		eq = strchr(var, '=');
-		assert(eq);
-		*eq = '\0';
-		infoadd(info, tr(var, "_", "-"), eq + 1);
-	}
-	info->next = next;
-	return info;
-}
-
-Info *
 cgipost(Info *next)
 {
 	Info *info;
@@ -153,8 +120,14 @@ cgierror(int code, char *fmt, ...)
 }
 
 void
-cgiredir(int code, char *url)
+cgiredir(int code, char *fmt, ...)
 {
+	va_list va;
+	char url[1024];
+
+	va_start(va, fmt);
+        vsnprintf(url, sizeof url, fmt, va);
+	va_end(va);
 	fprintf(stdout, "Status: %d redirecting\n", code);
 	fprintf(stdout, "Location: %s\n", url);
 	fprintf(stdout, "Content-Type: text/plain\n");

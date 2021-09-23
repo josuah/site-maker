@@ -1,14 +1,12 @@
 
-<article>
-	<form method="post" action="/cgi/admin?action=editinfo&amp;ref={{ref}}">
-		<table>
-			<tr><td>Name:</td><td><input name="Item-Name" type="text" value="{{Item-Name}}"/></td></tr>
-			<tr><td>Price:</td><td><input name="Item-Price" type="number" min="0" value="{{Item-Price}}"/></td></tr>
-			<tr><td>Text:</td><td><textarea cols="100" rows="5" name="Text">{{Text}}</textarea></td></tr>
-			<tr><td></td><td>
-				<button>edit</button>
-				<button formaction="/cgi/admin?action=delinfo&amp;ref={{ref}}" style="float:right;">delete</button>
-			</td></tr>
-		</table>
-	</form>
-</article>
+<form method="post" action="/cgi/admin?action=editinfo&amp;ref={{ref}}">
+	<table>
+		<tr><td>Name:</td><td><input name="Item-Name" type="text" value="{{Item-Name}}"/></td></tr>
+		<tr><td>Price:</td><td><input name="Item-Price" type="number" min="0" value="{{Item-Price}}"/></td></tr>
+		<tr><td>Text:</td><td><textarea cols="100" rows="5" name="Text">{{Text}}</textarea></td></tr>
+		<tr><td></td><td>
+			<button>edit</button>
+			<button formaction="/cgi/admin?action=delinfo&amp;ref={{ref}}" style="float:right;">delete</button>
+		</td></tr>
+	</table>
+</form>

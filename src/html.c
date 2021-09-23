@@ -31,7 +31,7 @@ htmlprint(char *s)
 }
 
 static void
-list(Info *info, char *dir, char *expr, char *page)
+list(Info *info, char *dir, char *expr, char *html)
 {
 	Info tmp;
 	InfoRow row;
@@ -40,13 +40,10 @@ list(Info *info, char *dir, char *expr, char *page)
 	int pop;
 
 	snprintf(path, sizeof path, "%s/%s", dir, expr);
-	warn("glob %s", path);
 	if(glob(path, 0, nil, &gl) != 0)
-		err(1, "globbing on %s: %s", path, strerror(errno));
-	warn("glob done %p", gl.gl_pathv);
+		goto End;
 
 	for(p = gl.gl_pathv; *p; p++){
-		warn("glob loop", path);
 		if(strcmp(sl = strrchr(*p, '/'), "/info") == 0){
 			if((info = inforead(info, *p)) == nil)
 				err(1, "parsing %s", *p);
@@ -63,12 +60,13 @@ list(Info *info, char *dir, char *expr, char *page)
 		tmp.len = 1;
 		tmp.buf = nil;
 
-		snprintf(path, sizeof path, "html/elem.%s.html", page);
+		snprintf(path, sizeof path, "html/elem.%s.html", html);
 		htmltemplate(path, &tmp);
 
 		if(pop)
 			info = infopop(info);
 	}
+End:
 	globfree(&gl);
 }
 

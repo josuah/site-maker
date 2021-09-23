@@ -8,7 +8,7 @@ int
 main(void)
 {
 	Info *info;
-	char path[512], *ref, *page, *sl;
+	char path[512], *ref, *html, *sl;
 
 	if(chdir("..") == -1)
 		err(1, "chdir ..");
@@ -21,24 +21,24 @@ main(void)
 	info = cgiget(nil);
 
 	if((ref = infostr(info, "ref")) == nil)
-		err(1, "no $ref");
-	if((page = infostr(info, "page")) == nil)
-		err(1, "no $page");
+		cgierror(400, "no $ref");
+	if((html = infostr(info, "html")) == nil)
+		cgierror(400, "no $html");
 
 	if((info = inforead(info, "data/info")) == nil)
-		err(1, "parsing %s", path);
+		cgierror(500, "parsing %s: %s", path, infoerr);
 	for(sl = ref; (sl = strchr(sl, '/')); sl++){
 		*sl = '\0';
 		snprintf(path, sizeof path, "%s/info", ref);
 		if((info = inforead(info, path)) == nil)
-			err(1, "parsing %s", path);
+			cgierror(500, "parsing %s: %s", path, infoerr);
 		*sl = '/';
 	}
 	snprintf(path, sizeof path, "%s/info", ref);
 	if((info = inforead(info, path)) == nil)
-		err(1, "parsing %s", path);
+		cgierror(500, "parsing %s: %s", path, infoerr);
 
-	snprintf(path, sizeof path, "html/page.%s.html", page);
+	snprintf(path, sizeof path, "html/page.%s.html", html);
 
 	cgihead();
 	htmltemplate("html/head.html", info);

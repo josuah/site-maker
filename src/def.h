@@ -38,7 +38,7 @@ Info *cgipost(Info *);
 Info *cgienv(Info *);
 void cgihead(void);
 void cgierror(int, char *, ...);
-void cgiredir(int, char *);
+void cgiredir(int, char *, ...);
 
 /* info */
 extern char const *infoerr;
