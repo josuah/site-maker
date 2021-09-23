@@ -21,6 +21,9 @@ htmlprint(char *s)
 		case '"':
 			fputs("&quot;", stdout);
 			break;
+		case '\'':
+			fputs("&#39;", stdout);
+			break;
 		case '&':
 			fputs("&amp;", stdout);
 			break;
