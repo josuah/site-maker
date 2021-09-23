@@ -86,9 +86,6 @@ cgipost(Info *next)
 		errx(1, "no $CONTENT_LENGTH");
 	len = atoi(env);
 
-	if(strcasecmp(env, "application/x-www-form-urlencoded") != 0)
-		cgierror(400, "expecting application/x-www-form-urlencoded");
-
 	if((buf = calloc(len + 1, 1)) == nil)
 		err(1, "calloc");
 
@@ -96,8 +93,11 @@ cgipost(Info *next)
 	if(ferror(stdin) || feof(stdin))
 		cgierror(500, "reading POST data");
 
-	if((env = getenv("HTTP_CONTENT_TYPE")) == nil)
+	if((env = getenv("CONTENT_TYPE")) == nil)
 		cgierror(500, "no $Content-Type");
+
+	if(strcasecmp(env, "application/x-www-form-urlencoded") != 0)
+		cgierror(400, "expecting application/x-www-form-urlencoded");
 
 	info = cgiinfo(next, buf);
 	info->buf = buf;
@@ -109,7 +109,9 @@ cgifile(char *path, size_t len)
 {
 	FILE *fp;
 	pid_t pid;
-	int c;
+	char *env, *s, *bound, *line = nil;
+	size_t sz = 0, boundlen;
+	int c, nl;
 
 	pid = getpid();
 
@@ -121,11 +123,45 @@ cgifile(char *path, size_t len)
 	if((fp = fopen(path, "w")) == nil)
 		cgierror(500, "opening temporary upload file %s", path);
 
+	if((env = getenv("CONTENT_TYPE")) == nil)
+		cgierror(500, "no $Content-Type");
+
+	s = "multipart/form-data; boundary=";
+	if(strncasecmp(env, s, strlen(s)) != 0)
+		cgierror(400, "expecting \"%s\"", s);
+	bound = env + strlen(s);
+
+	boundlen = strlen(bound);
+	getline(&line, &sz, stdin);
+	s = line;
+
+	if(strncmp(s, "--", 2) != 0)
+		cgierror(400, "cannot parse form data: %s", line);
+	s += 2;
+
+	if(strncmp(s, bound, boundlen) != 0)
+		cgierror(400, "cannot recognise boundary");
+	s += boundlen;
+	s += (*s == '\r');
+
+	if(*s != '\n')
+		cgierror(400, "expecting newline after boundary");
+	s++;
+
+	nl = 0;
+	while(getline(&line, &sz, stdin) > 0 && line[*line == '\r'] != '\n');
+
+	if(feof(stdin))
+		cgierror(400, "unexpected end-of-file before boundary end");
+
 	while((c = fgetc(stdin)) != EOF)
 		fputc(c, fp);
 
+	fflush(fp);
 	if(ferror(stdin) || ferror(fp))
 		cgierror(500, "writing file to %s", path);
+
+	ftruncate(fileno(fp), ftell(fp) - boundlen - strlen("----"));
 }
 
 void
