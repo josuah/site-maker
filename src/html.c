@@ -109,7 +109,10 @@ htmltemplate(char *htmlpath, Info *info)
 		for(; (param = next(head, &tail)) != nil; head = tail){
 			fputs(head, stdout);
 
-			if(strcasecmp(param, "nav") == 0){
+			if(strcasecmp(param, "now") == 0){
+				fprintf(stdout, "%lld", (long long)time(nil));
+
+			}else if(strcasecmp(param, "nav") == 0){
 				list(info, "data", "*/info", "nav");
 
 			}else if((sp = strchr(param, ' '))){

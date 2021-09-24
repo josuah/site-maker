@@ -1,7 +1,11 @@
 
-<form method="post" action="/cgi/admin?action=delimg&amp;ref={{ref}}">
+<form method="post">
 	<table>
-		<tr><td class="img"><img src="/{{ref}}"/></td></tr>
-		<tr><td><button>delete</button></td></tr>
+		<tr><td class="img"><img src="/{{ref}}?v={{now}}"/></td></tr>
+		<tr><td>
+			<button formaction="/cgi/admin?action=swapup&amp;ref={{ref}}">▲</button>
+			<button formaction="/cgi/admin?action=swapdown&amp;ref={{ref}}">▼</button>
+			<button formaction="/cgi/admin?action=delimg&amp;ref={{ref}}" style="float:right;">delete</button>
+		</td></tr>
 	</table>
 </form>

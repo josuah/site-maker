@@ -21,6 +21,7 @@ struct Fn {
 static void
 xrename(char *src, char *dst)
 {
+	warn("%s -> %s", src, dst);
 	if(rename(src, dst) == -1)
 		cgierror(500, "%s -> %s: %s", src, dst, strerror(errno));
 }
@@ -130,7 +131,6 @@ swap(char *ref, int off)
 		cgierror(400, "invalid $ref");
 
 	snprintf(path, sizeof path, "%.*s*", (int)(p - ref), ref);
-	warn("path=%s", path);
         if(glob(path, 0, nil, &gl) != 0)
 		goto End;
 
@@ -145,10 +145,12 @@ swap(char *ref, int off)
 	snprintf(path, sizeof path, "tmp/%i", pid);
 	mkdir(path, 0770);
 
+	snprintf(path, sizeof path, "tmp/%i/pivot", pid);
 	xrename(*pp, path);
 	xrename(pp[off], *pp);
 	xrename(path, pp[off]);
 End:
+	rmdir(path);
 	globfree(&gl);
 }
 
