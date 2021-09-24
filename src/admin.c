@@ -102,8 +102,8 @@ delinfo(Info *info, char *ref)
 
 	if(stat(ref, &st) == -1)
 		cgierror(500, "stat %s: %s", ref, strerror(errno));
-	if(st.st_nlink > 3 /* ".", "..", "info" */)
-		cgierror(500, "%s: directory not empty", ref);
+	if(st.st_nlink > 2 /* ".", "info" */)
+		cgierror(500, "%s: element not empty", ref);
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(unlink(path) == -1)
