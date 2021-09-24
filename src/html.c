@@ -39,17 +39,17 @@ list(Info *info, char *dir, char *expr, char *html)
 	Info tmp;
 	InfoRow row;
 	glob_t gl;
-	char path[128], **p, *sl;
+	char path[256], **pp, *sl;
 	int pop;
 
 	snprintf(path, sizeof path, "%s/%s", dir, expr);
 	if(glob(path, 0, nil, &gl) != 0)
 		goto End;
 
-	for(p = gl.gl_pathv; *p; p++){
-		if(strcmp(sl = strrchr(*p, '/'), "/info") == 0){
-			if((info = inforead(info, *p)) == nil)
-				err(1, "parsing %s", *p);
+	for(pp = gl.gl_pathv; *pp; pp++){
+		if(strcmp(sl = strrchr(*pp, '/'), "/info") == 0){
+			if((info = inforead(info, *pp)) == nil)
+				err(1, "parsing %s", *pp);
 			*sl = '\0';
 			pop = 1;
 		}else{
@@ -57,7 +57,7 @@ list(Info *info, char *dir, char *expr, char *html)
 		}
 
 		row.key = "ref";
-		row.val = *p;
+		row.val = *pp;
 		tmp.vars = &row;
 		tmp.next = info;
 		tmp.len = 1;

@@ -15,12 +15,13 @@ ${BIN}: ${BIN:=.o} ${OBJ}
 cgi:
 	mkdir -p $@
 
-tmp:
+tmp data:
 	mkdir -p $@
-	chown www:www $@
+	chown -R www:www $@
 
-install: ${BIN} cgi tmp
+install: ${BIN} cgi tmp data
 	cp ${BIN} cgi
+	touch data/info
 
 clean:
-	rm -f src/*.o ${BIN}
+	rm -rf src/*.o ${BIN} tmp/*

@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <glob.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,10 +18,17 @@ struct Fn {
 	Info *(*fn)(Info *, char *);
 };
 
+static void
+xrename(char *src, char *dst)
+{
+	if(rename(src, dst) == -1)
+		cgierror(500, "%s -> %s: %s", src, dst, strerror(errno));
+}
+
 static size_t
 newid(char *ref, char *suffix)
 {
-	char path[128];
+	char path[256];
 	size_t i;
 
 	for(i = 1; i < SIZE_MAX; i++){
@@ -40,7 +49,7 @@ newid(char *ref, char *suffix)
 static Info *
 addinfo(Info *info, char *ref)
 {
-	char *leaf; char path[128], dest[128];
+	char *leaf; char path[256], dest[256];
 	pid_t pid;
 	size_t id;
 
@@ -50,22 +59,21 @@ addinfo(Info *info, char *ref)
 	if((leaf = strrchr(ref, '/')))
 		leaf++;
 
-	snprintf(path, sizeof path, "tmp/%d", pid);
-	mkdir(path, 0760);
+	snprintf(path, sizeof path, "tmp/%i", pid);
+	mkdir(path, 0770);
 
-	snprintf(path, sizeof path, "tmp/%d/%s%zu", pid, leaf, id);
-	mkdir(path, 0760);
+	snprintf(path, sizeof path, "tmp/%i/%s%zu", pid, leaf, id);
+	mkdir(path, 0770);
 
-	snprintf(path, sizeof path, "tmp/%d/%s%zu/info", pid, leaf, id);
+	snprintf(path, sizeof path, "tmp/%i/%s%zu/info", pid, leaf, id);
 	if(infowrite(info, path))
 		cgierror(500, "writing info to %s: %s", path, strerror(errno));
 
-	snprintf(path, sizeof path, "tmp/%d/%s%zu", pid, leaf, id);
+	snprintf(path, sizeof path, "tmp/%i/%s%zu", pid, leaf, id);
 	snprintf(dest, sizeof dest, "%s%zu", ref, id);
-	if(rename(path, dest) == -1)
-		cgierror(500, "%s -> %s: %s", path, dest, strerror(errno));
+	xrename(path, dest);
 
-	snprintf(path, sizeof path, "tmp/%d", pid);
+	snprintf(path, sizeof path, "tmp/%i", pid);
 	rmdir(path);
 
 	return info;
@@ -74,7 +82,7 @@ addinfo(Info *info, char *ref)
 static Info *
 editinfo(Info *info, char *ref)
 {
-	char path[128];
+	char path[256];
 
 	info = cgipost(info);
 
@@ -88,16 +96,73 @@ editinfo(Info *info, char *ref)
 static Info *
 delinfo(Info *info, char *ref)
 {
+	struct stat st;
 	char path[1024];
+
+	if(stat(ref, &st) == -1)
+		cgierror(500, "stat %s: %s", ref, strerror(errno));
+	if(st.st_nlink > 3 /* ".", "..", "info" */)
+		cgierror(500, "%s: directory not empty", ref);
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(unlink(path) == -1)
 		cgierror(500, "deleting %s: %s", path, strerror(errno));
 
-	snprintf(path, sizeof path, "%s", ref);
-	if((rmdir(path)) == -1)
+	if((rmdir(ref)) == -1)
 		cgierror(500, "deleting %s: %s", path, strerror(errno));
 
+	return info;
+}
+
+static void
+swap(char *ref, int off)
+{
+	char *p, **pp, path[256];
+	pid_t pid;
+	glob_t gl;
+
+	pid = getpid();
+
+	if((p = strrchr(ref, '/')) == nil)
+		cgierror(400, "invalid $ref");
+	p += strcspn(p, "0123456789");
+	if(!isdigit(*p))
+		cgierror(400, "invalid $ref");
+
+	snprintf(path, sizeof path, "%.*s*", (int)(p - ref), ref);
+	warn("path=%s", path);
+        if(glob(path, 0, nil, &gl) != 0)
+		goto End;
+
+        for(pp = gl.gl_pathv; *pp; pp++)
+		if(strcmp(*pp, ref) == 0)
+			break;
+	if(*pp == nil)
+		cgierror(500, "%s not found", ref);
+	if(pp + off < gl.gl_pathv || pp[off] == nil)
+		goto End;
+
+	snprintf(path, sizeof path, "tmp/%i", pid);
+	mkdir(path, 0770);
+
+	xrename(*pp, path);
+	xrename(pp[off], *pp);
+	xrename(path, pp[off]);
+End:
+	globfree(&gl);
+}
+
+static Info *
+swapup(Info *info, char *ref)
+{
+	swap(ref, -1);
+	return info;
+}
+
+static Info *
+swapdown(Info *info, char *ref)
+{
+	swap(ref, +1);
 	return info;
 }
 
@@ -111,8 +176,7 @@ addimg(Info *info, char *ref)
 	id = newid(ref, ".jpg");
 
 	snprintf(dest, sizeof dest, "%s%zu%s", ref, id, ".jpg");
-	if(rename(path, dest) == -1)
-		cgierror(500, "%s -> %s: %s", path, dest, strerror(errno));
+	xrename(path, dest);
 
 	return info;
 }
@@ -138,7 +202,8 @@ cmp(void const *v1, void const *v2)
 #define F(fn) { #fn, fn }
 Fn fnmap[] = {
 	/* sorted for bearch */
-	F(addimg), F(addinfo), F(delimg), F(delinfo), F(editinfo)
+        F(addimg), F(addinfo), F(delimg), F(delinfo), F(editinfo),
+        F(swapdown), F(swapup)
 };
 
 int
@@ -170,6 +235,6 @@ main(void)
 	if((url = getenv("HTTP_REFERER")) == nil)
 		url = "/";
 	infofree(info);
-	cgiredir(307, "%s", url);
+	cgiredir(302, "%s", url);
 	return 0;
 }

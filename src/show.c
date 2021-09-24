@@ -8,7 +8,7 @@ int
 main(void)
 {
 	Info *info;
-	char path[512], *ref, *html, *sl;
+	char path[256], *ref, *html, *sl;
 
 	if(chdir("..") == -1)
 		err(1, "chdir ..");
@@ -26,7 +26,7 @@ main(void)
 		cgierror(400, "no $html");
 
 	if((info = inforead(info, "data/info")) == nil)
-		cgierror(500, "parsing %s: %s", path, infoerr);
+		cgierror(500, "parsing %s: %s", "data/info", infoerr);
 	for(sl = ref; (sl = strchr(sl, '/')); sl++){
 		*sl = '\0';
 		snprintf(path, sizeof path, "%s/info", ref);

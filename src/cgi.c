@@ -115,11 +115,11 @@ cgifile(char *path, size_t len)
 
 	pid = getpid();
 
-	snprintf(path, len, "tmp/%d", pid);
-	if(mkdir(path, 0775) == -1)
+	snprintf(path, len, "tmp/%i", pid);
+	if(mkdir(path, 0770) == -1)
 		cgierror(500, "making temporary directory %s", path);
 
-	snprintf(path, len, "tmp/%d/file", pid);
+	snprintf(path, len, "tmp/%i/file", pid);
 	if((fp = fopen(path, "w")) == nil)
 		cgierror(500, "opening temporary upload file %s", path);
 
@@ -179,10 +179,10 @@ cgierror(int code, char *fmt, ...)
 	va_start(va, fmt);
         vsnprintf(msg, sizeof msg, fmt, va);
 	va_end(va);
-	fprintf(stdout, "Status: %d %s\n", code, msg);
+	fprintf(stdout, "Status: %i %s\n", code, msg);
 	fprintf(stdout, "Content-Type: text/plain\n");
 	fprintf(stdout, "\n");
-	fprintf(stdout, "Error %d: %s\n", code, msg);
+	fprintf(stdout, "Error %i: %s\n", code, msg);
 	exit(0);
 }
 
@@ -195,7 +195,7 @@ cgiredir(int code, char *fmt, ...)
 	va_start(va, fmt);
         vsnprintf(url, sizeof url, fmt, va);
 	va_end(va);
-	fprintf(stdout, "Status: %d redirecting\n", code);
+	fprintf(stdout, "Status: %i redirecting\n", code);
 	fprintf(stdout, "Location: %s\n", url);
 	fprintf(stdout, "Content-Type: text/plain\n");
 	fprintf(stdout, "\n");
