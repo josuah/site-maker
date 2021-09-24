@@ -4,47 +4,48 @@
 #include <string.h>
 #include "def.h"
 
-int
-main(void)
+static void
+show(void)
 {
 	Info *info;
 	char path[256], *ref, *html, *sl;
 
-	if(chdir("..") == -1)
-		err(1, "chdir ..");
-	if(unveil("data", "r") == -1
-	|| unveil("html", "r") == -1)
-		err(1, "unveil html");
-	if(pledge("stdio rpath", nil) == -1)
-		err(1, "pledge stdio rpath");
+	info = cgiget(cgicookies(nil));
 
-	info = cgiget(nil);
-
-	if((ref = infostr(info, "ref")) == nil)
-		cgierror(400, "no $ref");
 	if((html = infostr(info, "html")) == nil)
-		cgierror(400, "no $html");
-
+		cgifatal("no $html");
 	if((info = inforead(info, "data/info")) == nil)
-		cgierror(500, "parsing %s: %s", "data/info", infoerr);
-	for(sl = ref; (sl = strchr(sl, '/')); sl++){
-		*sl = '\0';
+		cgifatal("parsing %s: %s", "data/info", infoerr);
+	if((ref = infostr(info, "ref"))){
+		for(sl = ref; sl && (sl = strchr(sl, '/')); sl++){
+			*sl = '\0';
+			snprintf(path, sizeof path, "%s/info", ref);
+			if((info = inforead(info, path)) == nil)
+				cgifatal("parsing %s: %s", path, infoerr);
+			*sl = '/';
+		}
 		snprintf(path, sizeof path, "%s/info", ref);
 		if((info = inforead(info, path)) == nil)
-			cgierror(500, "parsing %s: %s", path, infoerr);
-		*sl = '/';
+			cgifatal("parsing %s: %s", path, infoerr);
 	}
-	snprintf(path, sizeof path, "%s/info", ref);
-	if((info = inforead(info, path)) == nil)
-		cgierror(500, "parsing %s: %s", path, infoerr);
-
 	snprintf(path, sizeof path, "html/page.%s.html", html);
-
-	cgihead();
+	cgihead("text/html");
 	htmltemplate("html/head.html", info);
 	htmltemplate(path, info);
 	htmltemplate("html/foot.html", info);
-
 	infofree(info);
+}
+
+int
+main(void)
+{
+	if(chdir("..") == -1)
+		sysfatal("chdir ..");
+	if(unveil("data", "r") == -1
+	|| unveil("html", "r") == -1)
+		sysfatal("unveil html");
+	if(pledge("stdio rpath", nil) == -1)
+		sysfatal("pledge stdio rpath");
+	show();
 	return 0;
 }

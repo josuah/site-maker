@@ -1,4 +1,4 @@
-BIN = src/show src/admin
+BIN = src/show src/admin src/cart
 OBJ = src/html.o src/util.o src/cgi.o src/info.o
 
 LDFLAGS = -static

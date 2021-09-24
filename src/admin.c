@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -21,9 +22,8 @@ struct Fn {
 static void
 xrename(char *src, char *dst)
 {
-	warn("%s -> %s", src, dst);
 	if(rename(src, dst) == -1)
-		cgierror(500, "%s -> %s: %s", src, dst, strerror(errno));
+		cgifatal("%s -> %s: %s", src, dst, strerror(errno));
 }
 
 static size_t
@@ -38,7 +38,7 @@ newid(char *ref, char *suffix)
 			if(errno == ENOENT){
 				return i;
 			}else{
-				cgierror(500, "scanning %s: %s",
+				cgifatal("scanning %s: %s",
 				  path, strerror(errno));
 			}
 		}
@@ -68,7 +68,7 @@ addinfo(Info *info, char *ref)
 
 	snprintf(path, sizeof path, "tmp/%i/%s%zu/info", pid, leaf, id);
 	if(infowrite(info, path))
-		cgierror(500, "writing info to %s: %s", path, strerror(errno));
+		cgifatal("writing info to %s: %s", path, strerror(errno));
 
 	snprintf(path, sizeof path, "tmp/%i/%s%zu", pid, leaf, id);
 	snprintf(dest, sizeof dest, "%s%zu", ref, id);
@@ -89,7 +89,7 @@ editinfo(Info *info, char *ref)
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(infowrite(info, path))
-		cgierror(500, "writing info to %s: %s", path, strerror(errno));
+		cgifatal("writing info to %s: %s", path, strerror(errno));
 
 	return info;
 }
@@ -97,20 +97,22 @@ editinfo(Info *info, char *ref)
 static Info *
 delinfo(Info *info, char *ref)
 {
-	struct stat st;
+	DIR *dp;
 	char path[1024];
 
-	if(stat(ref, &st) == -1)
-		cgierror(500, "stat %s: %s", ref, strerror(errno));
-	if(st.st_nlink > 2 /* ".", "info" */)
-		cgierror(500, "%s: element not empty", ref);
+	if((dp = opendir(ref)) == nil)
+		cgifatal("%s: cannot open directory", ref);
+	readdir(dp), readdir(dp), readdir(dp); /* ".", "..", "info" */
+	if(readdir(dp) != nil)
+		cgifatal("%s: element not empty", ref);
+	closedir(dp);
 
 	snprintf(path, sizeof path, "%s/info", ref);
 	if(unlink(path) == -1)
-		cgierror(500, "deleting %s: %s", path, strerror(errno));
+		cgifatal("deleting %s: %s", path, strerror(errno));
 
 	if((rmdir(ref)) == -1)
-		cgierror(500, "deleting %s: %s", path, strerror(errno));
+		cgifatal("deleting %s: %s", path, strerror(errno));
 
 	return info;
 }
@@ -125,10 +127,10 @@ swap(char *ref, int off)
 	pid = getpid();
 
 	if((p = strrchr(ref, '/')) == nil)
-		cgierror(400, "invalid $ref");
+		cgifatal("invalid $ref");
 	p += strcspn(p, "0123456789");
 	if(!isdigit(*p))
-		cgierror(400, "invalid $ref");
+		cgifatal("invalid $ref");
 
 	snprintf(path, sizeof path, "%.*s*", (int)(p - ref), ref);
         if(glob(path, 0, nil, &gl) != 0)
@@ -138,7 +140,7 @@ swap(char *ref, int off)
 		if(strcmp(*pp, ref) == 0)
 			break;
 	if(*pp == nil)
-		cgierror(500, "%s not found", ref);
+		cgifatal("%s not found", ref);
 	if(pp + off < gl.gl_pathv || pp[off] == nil)
 		goto End;
 
@@ -190,7 +192,7 @@ delimg(Info *info, char *ref)
 
 	snprintf(path, sizeof path, "%s", ref);
 	if(unlink(path) == -1)
-		cgierror(500, "deleting %s", ref);
+		cgifatal("deleting %s", ref);
 
 	return info;
 }
@@ -208,35 +210,40 @@ Fn fnmap[] = {
         F(swapdown), F(swapup)
 };
 
-int
-main(void)
+static void
+admin(void)
 {
-	Info *info = nil;
+	Info *info;
 	char *ref, *url;
 	Fn fq, *fn;
-
-	if(chdir("..") == -1)
-		err(1, "chdir");
-	if(unveil("data", "rwc")
-	|| unveil("tmp", "rwc"))
-		err(1, "unveil");
-	if(pledge("stdio rpath wpath cpath", nil))
-		err(1, "pledge");
 
 	info = cgiget(nil);
 
 	if((ref = infostr(info, "ref")) == nil)
-		cgierror(400, "no $ref");
+		cgifatal("no $ref");
 	if((fq.name = infostr(info, "action")) == nil)
-		cgierror(400, "no $action");
+		cgifatal("no $action");
 
 	if ((fn = bsearch(&fq, fnmap, L(fnmap), sizeof *fnmap, cmp)) == nil)
-		cgierror(400, "action %s not found", fq.name);
+		cgifatal("action %s not found", fq.name);
 	info = fn->fn(info, ref);
 
 	if((url = getenv("HTTP_REFERER")) == nil)
 		url = "/";
 	infofree(info);
 	cgiredir(302, "%s", url);
+}
+
+int
+main(void)
+{
+	if(chdir("..") == -1)
+		sysfatal("chdir");
+	if(unveil("data", "rwc")
+	|| unveil("tmp", "rwc"))
+		sysfatal("unveil");
+	if(pledge("stdio rpath wpath cpath", nil))
+		sysfatal("pledge");
+	admin();
 	return 0;
 }

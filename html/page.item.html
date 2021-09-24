@@ -1,10 +1,15 @@
-<nav>{{nav}}</nav>
+<nav>{{nav}} <a href="/cgi/show?html=cart" style="color:#00a;">Panier ({{cartcount}})</a></nav>
 
-<h2>{{Item-Name}}</h2>
+<h2><a href="/cgi/show?html=cat&ref={{parent}}">◀</a> {{Item-Name}}</h2>
 
-<pre>Prix: {{Item-Price}}
+<pre>{{Text}}</pre>
 
-{{Text}}</pre>
+<article>
+	<form action="/cgi/cart?ref={{ref}}&amp;action=add" method="post" style="display:inline;">
+		<button>Ajouter au panier</button>
+	</form>
+	{{Item-Price}}€
+</article>
 
 <p id="gallery">
 {{img img*.jpg}}

@@ -22,10 +22,7 @@ struct Info
 
 /* util */
 extern char *arg0;
-void err(int, char const *, ...);
-void errx(int, char const *, ...);
-void warn(char const *, ...);
-void warnx(char const *, ...);
+void sysfatal(char const *, ...);
 char *strsep(char **, char const *);
 long long strtonum(char const *, long long, long long, char const **);
 char *fopenread(char const *);
@@ -33,12 +30,14 @@ void isort(void *, size_t, size_t, int (*)(void const *, void const *));
 char *tr(char *, char const *, char const *);
 
 /* cgi */
+extern Info headers[1], cookies[1];
 Info *cgiget(Info *);
 Info *cgipost(Info *);
 void cgifile(char *, size_t);
 Info *cgienv(Info *);
-void cgihead(void);
-void cgierror(int, char *, ...);
+Info *cgicookies(Info *);
+void cgihead(char *);
+void cgifatal(char *, ...);
 void cgiredir(int, char *, ...);
 
 /* info */

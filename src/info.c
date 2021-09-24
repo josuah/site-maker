@@ -30,9 +30,7 @@ char const *infoerr = "(no message)";
 static int
 cmp(void const *v1, void const *v2)
 {
-	InfoRow const *r1 = v1, *r2 = v2;
-
-	return strcasecmp(r1->key, r2->key);
+	return strcasecmp(((InfoRow *)v1)->key, ((InfoRow *)v2)->key);
 }
 
 void
@@ -48,7 +46,7 @@ infoadd(Info *info, char *key, char *val)
 
 	info->len++;
 	if((mem = realloc(info->vars, info->len * sizeof *info->vars)) == nil)
-		 err(1, "realloc");
+		 sysfatal("realloc");
 	info->vars = mem;
 	info->vars[info->len-1].key = key;
 	info->vars[info->len-1].val = val;
@@ -57,7 +55,9 @@ infoadd(Info *info, char *key, char *val)
 char *
 infostr(Info *info, char *key)
 {
-	InfoRow *r, q = { .key = key };
+	InfoRow *r, q;
+
+	q.key = key;
 
 	if(info == nil)
 		return nil;
@@ -85,9 +85,10 @@ Err:
 void
 infoset(Info *info, char *key, char *val)
 {
-	InfoRow *r, query = { .key = key };
+	InfoRow *r, q;
 
-	r = bsearch(&query, info->vars, info->len, sizeof *info->vars, cmp);
+	q.key = key;
+	r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp);
 	if(r != nil){
 		r->val = val;
 		return;
@@ -117,7 +118,9 @@ Info *
 inforead(Info *next, char *path)
 {
 	Info *info;
-	char *buf = nil, *line = nil, *tail, *key;
+	char *buf, *line, *tail, *key;
+
+	buf = line = nil;
 
 	if((info = calloc(sizeof *info, 1)) == nil)
 		Err(strerror(errno));
@@ -147,10 +150,12 @@ Err:
 int
 infowrite(Info *info, char *dst)
 {
-	FILE *fp = nil;
+	FILE *fp;
 	InfoRow *row;
 	size_t n;
-	char path[1024], *text = nil;
+	char path[1024], *text;
+
+	text = nil;
 
 	snprintf(path, sizeof path, "%s.tmp", dst);
 	if((fp = fopen(path, "w")) == nil)

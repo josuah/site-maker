@@ -7,6 +7,14 @@
 #include <unistd.h>
 #include "def.h"
 
+typedef struct Fn Fn;
+
+struct Fn
+{
+	char *name;
+	void (*fn)(Info *info); 
+};
+
 void
 htmlprint(char *s)
 {
@@ -49,7 +57,7 @@ list(Info *info, char *dir, char *expr, char *html)
 	for(pp = gl.gl_pathv; *pp; pp++){
 		if(strcmp(sl = strrchr(*pp, '/'), "/info") == 0){
 			if((info = inforead(info, *pp)) == nil)
-				err(1, "parsing %s", *pp);
+				sysfatal("parsing %s", *pp);
 			*sl = '\0';
 			pop = 1;
 		}else{
@@ -73,11 +81,77 @@ End:
 	globfree(&gl);
 }
 
-/*
- * extract parameters from head and bump tail pointer:
- *	text with {{parameter}} in some line
- *	          0 ^return  0 ^tail
- */
+static void
+cart(Info *info)
+{
+	Info *new;
+	char *s, *ref, path[256];
+
+	if((s = infostr(info, "cart")) == nil){
+		htmltemplate("html/elem.cartempty.html", info);
+		return;
+	}
+	while((ref = strsep(&s, ","))){
+		snprintf(path, sizeof path, "%s/info", ref);
+		if((new = inforead(info, path)) == nil){
+			htmltemplate("html/elem.cartmissing.html", info);
+			continue;
+		}
+		infoset(new, "ref", ref);
+		htmltemplate("html/elem.cart.html", new);
+		infopop(new);
+	}
+}
+
+static void
+cartcount(Info *info)
+{
+	char *cart;
+	size_t count;
+
+	count = 0;
+	if((cart = infostr(info, "cart"))){
+		count += (*cart != '\0');
+		while((cart = strchr(cart, ',')))
+			cart++, count++;
+	}
+	fprintf(stdout, "%zu", count);
+}
+
+static void
+nav(Info *info)
+{
+	list(info, "data", "*/info", "nav");
+}
+
+static void
+now(Info *info)
+{
+	fprintf(stdout, "%lld", (long long)time(nil));
+}
+
+static void
+parent(Info *info)
+{
+	char buf[256], *ref, *sl;
+
+	if((ref = infostr(info, "ref")) == nil)
+		sysfatal("no $ref");
+	strlcpy(buf, ref, sizeof buf);
+	if((sl = strrchr(buf, '/')))
+		*sl = '\0';
+	fputs(buf, stdout);
+}
+
+#define F(name) { #name, name }
+static Fn fmap[] = { F(cart), F(cartcount), F(nav), F(now), F(parent) };
+
+static int
+cmp(void const *v1, void const *v2)
+{
+	return strcasecmp(((Fn *)v1)->name, ((Fn *)v2)->name);
+}
+
 static char *
 next(char *head, char **tail)
 {
@@ -97,35 +171,36 @@ next(char *head, char **tail)
 void
 htmltemplate(char *htmlpath, Info *info)
 {
-	FILE *fp = nil;
-	size_t sz = 0;
-	char *line = nil, *head, *tail, *param, *sp, *ref, *val;
+	FILE *fp;
+	Fn *f, q;
+	size_t sz;
+	char *line, *head, *tail, *sp, *ref, *val;
+
+	sz = 0;
+	line = nil;
 
 	if((fp = fopen(htmlpath, "r")) == nil)
-		err(1, "opening template %s", htmlpath);
+		sysfatal("opening template %s", htmlpath);
 
 	while(getline(&line, &sz, fp) > 0){
 		head = tail = line;
-		for(; (param = next(head, &tail)) != nil; head = tail){
+		for(; (q.name = next(head, &tail)); head = tail){
 			fputs(head, stdout);
 
-			if(strcasecmp(param, "now") == 0){
-				fprintf(stdout, "%lld", (long long)time(nil));
+			if((f = bsearch(&q, fmap, L(fmap), sizeof *fmap, cmp))){
+				f->fn(info);
 
-			}else if(strcasecmp(param, "nav") == 0){
-				list(info, "data", "*/info", "nav");
-
-			}else if((sp = strchr(param, ' '))){
+			}else if((sp = strchr(q.name, ' '))){
 				*sp = '\0';
 				if((ref = infostr(info, "ref")) == nil)
-					err(1, "no $ref");
-				list(info, ref, sp + 1, param);
+					sysfatal("no $ref");
+				list(info, ref, sp + 1, q.name);
 
-			}else if((val = infostr(info, param))){
+			}else if((val = infostr(info, q.name))){
 				htmlprint(val);
 
 			}else{
-				fprintf(stdout, "{{error:%s}}", param);
+				fprintf(stdout, "{{error:%s}}", q.name);
 			}
 		}
 		fputs(tail, stdout);

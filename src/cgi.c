@@ -15,6 +15,8 @@
 	0\
 )
 
+Info headers[1], cookies[1];
+
 static void
 decode(char *s)
 {
@@ -44,14 +46,14 @@ decode(char *s)
 	}
 }
 
-Info *
-cgiinfo(Info *next, char *s)
+static Info *
+parsequery(Info *next, char *s)
 {
 	Info *info;
 	char *var, *eq;
 
 	if((info = calloc(sizeof *info, 1)) == nil)
-		err(1, "calloc");
+		sysfatal("calloc");
 
 	while((var = strsep(&s, "&"))){
 		decode(var);
@@ -71,8 +73,8 @@ cgiget(Info *next)
 	char *query;
 
 	if((query = getenv("QUERY_STRING")) == nil)
-		errx(1, "no $QUERY_STRING");
-	return cgiinfo(next, query);
+		cgifatal("no $QUERY_STRING");
+	return parsequery(next, query);
 }
 
 Info *
@@ -83,24 +85,43 @@ cgipost(Info *next)
 	char *buf, *env;
 
 	if((env = getenv("CONTENT_LENGTH")) == nil)
-		errx(1, "no $CONTENT_LENGTH");
+		sysfatal("no $CONTENT_LENGTH");
 	len = atoi(env);
 
 	if((buf = calloc(len + 1, 1)) == nil)
-		err(1, "calloc");
+		sysfatal("calloc");
 
 	fread(buf, len, 1, stdin);
 	if(ferror(stdin) || feof(stdin))
-		cgierror(500, "reading POST data");
+		cgifatal("reading POST data");
 
 	if((env = getenv("CONTENT_TYPE")) == nil)
-		cgierror(500, "no $Content-Type");
+		cgifatal("no $Content-Type");
 
 	if(strcasecmp(env, "application/x-www-form-urlencoded") != 0)
-		cgierror(400, "expecting application/x-www-form-urlencoded");
+		cgifatal("expecting application/x-www-form-urlencoded");
 
-	info = cgiinfo(next, buf);
+	info = parsequery(next, buf);
 	info->buf = buf;
+	return info;
+}
+
+Info *
+cgicookies(Info *next)
+{
+	Info *info;
+	char *env, *val;
+
+	if((info = calloc(sizeof *info, 1)) == nil)
+		sysfatal("calloc");
+	if((env = getenv("HTTP_COOKIE")) == nil)
+		return info;
+	while((val = strsep(&env, ";"))){
+		val += (*val == ' ');
+		infoadd(info, strsep(&val, "="), val);
+	}
+	infosort(info);
+	info->next = next;
 	return info;
 }
 
@@ -109,26 +130,28 @@ cgifile(char *path, size_t len)
 {
 	FILE *fp;
 	pid_t pid;
-	char *env, *s, *bound, *line = nil;
-	size_t sz = 0, boundlen;
+	char *env, *s, *bound, *line;
+	size_t sz, boundlen;
 	int c, nl;
 
 	pid = getpid();
+	line = nil;
+	sz = 0;
 
 	snprintf(path, len, "tmp/%i", pid);
 	if(mkdir(path, 0770) == -1)
-		cgierror(500, "making temporary directory %s", path);
+		cgifatal("making temporary directory %s", path);
 
 	snprintf(path, len, "tmp/%i/file", pid);
 	if((fp = fopen(path, "w")) == nil)
-		cgierror(500, "opening temporary upload file %s", path);
+		cgifatal("opening temporary upload file %s", path);
 
 	if((env = getenv("CONTENT_TYPE")) == nil)
-		cgierror(500, "no $Content-Type");
+		cgifatal("no $Content-Type");
 
 	s = "multipart/form-data; boundary=";
 	if(strncasecmp(env, s, strlen(s)) != 0)
-		cgierror(400, "expecting \"%s\"", s);
+		cgifatal("expecting \"%s\"", s);
 	bound = env + strlen(s);
 
 	boundlen = strlen(bound);
@@ -136,42 +159,54 @@ cgifile(char *path, size_t len)
 	s = line;
 
 	if(strncmp(s, "--", 2) != 0)
-		cgierror(400, "cannot parse form data: %s", line);
+		cgifatal("cannot parse form data: %s", line);
 	s += 2;
 
 	if(strncmp(s, bound, boundlen) != 0)
-		cgierror(400, "cannot recognise boundary");
+		cgifatal("cannot recognise boundary");
 	s += boundlen;
 	s += (*s == '\r');
 
 	if(*s != '\n')
-		cgierror(400, "expecting newline after boundary");
+		cgifatal("expecting newline after boundary");
 	s++;
 
 	nl = 0;
 	while(getline(&line, &sz, stdin) > 0 && line[*line == '\r'] != '\n');
 
 	if(feof(stdin))
-		cgierror(400, "unexpected end-of-file before boundary end");
+		cgifatal("unexpected end-of-file before boundary end");
 
 	while((c = fgetc(stdin)) != EOF)
 		fputc(c, fp);
 
 	fflush(fp);
 	if(ferror(stdin) || ferror(fp))
-		cgierror(500, "writing file to %s", path);
+		cgifatal("writing file to %s", path);
 
 	ftruncate(fileno(fp), ftell(fp) - boundlen - strlen("----"));
 }
 
 void
-cgihead(void)
+cgihead(char *type)
 {
-	fputs("Content-Type: text/html\n\n", stdout);
+	InfoRow *row;
+	size_t n;
+
+	fprintf(stdout, "Content-Type: %s\n", type);
+
+	for(row = headers->vars, n = headers->len; n > 0; n--, row++)
+		if(strcasecmp(row->key, "text") != 0)
+			fprintf(stdout, "%s: %s\n", row->key, row->val);
+
+	for(row = cookies->vars, n = cookies->len; n > 0; n--, row++)
+		fprintf(stdout, "Set-Cookie: %s=%s\n", row->key, row->val);
+
+	fputc('\n', stdout);
 }
 
 void
-cgierror(int code, char *fmt, ...)
+cgifatal(char *fmt, ...)
 {
 	va_list va;
 	char msg[1024];
@@ -179,10 +214,10 @@ cgierror(int code, char *fmt, ...)
 	va_start(va, fmt);
         vsnprintf(msg, sizeof msg, fmt, va);
 	va_end(va);
-	fprintf(stdout, "Status: %i %s\n", code, msg);
+	fprintf(stdout, "Status: 500 %s\n", msg);
 	fprintf(stdout, "Content-Type: text/plain\n");
 	fprintf(stdout, "\n");
-	fprintf(stdout, "Error %i: %s\n", code, msg);
+	fprintf(stdout, "Error: %s\n", msg);
 	exit(0);
 }
 
@@ -197,7 +232,6 @@ cgiredir(int code, char *fmt, ...)
 	va_end(va);
 	fprintf(stdout, "Status: %i redirecting\n", code);
 	fprintf(stdout, "Location: %s\n", url);
-	fprintf(stdout, "Content-Type: text/plain\n");
-	fprintf(stdout, "\n");
-	fprintf(stdout, "redirecting to %s...\n", url);
+	cgihead("text/plain");
+	fprintf(stdout, "Redirecting to %s\n", url);
 }

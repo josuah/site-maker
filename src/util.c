@@ -7,54 +7,20 @@
 #include <limits.h>
 #include "def.h"
 
-char *arg0;
+char *argv0;
 
-static void
-_log(char const *fmt, va_list va, int err)
+void
+sysfatal(char const *fmt, ...)
 {
-	if (arg0)
-		fprintf(stderr, "%s: ", arg0);
+	va_list va;
+
+	va_start(va, fmt);
+	if (argv0)
+		fprintf(stderr, "%s: ", argv0);
 	vfprintf(stderr, fmt, va);
-	fprintf(stderr, err ? ": %s\n" : "\n", strerror(err));
+	fprintf(stderr, errno ? ": %s\n" : "\n", strerror(errno));
 	fflush(stderr);
-}
-
-void
-err(int e, char const *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	_log( fmt, va, errno);
-	exit(e);
-}
-
-void
-errx(int e, char const *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	_log( fmt, va, 0);
-	exit(e);
-}
-
-void
-warn(char const *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	_log(fmt, va, errno);
-}
-
-void
-warnx(char const *fmt, ...)
-{
-	va_list va;
-
-	va_start(va, fmt);
-	_log(fmt, va, 0);
+	exit(1);
 }
 
 char *
@@ -80,10 +46,11 @@ strsep(char **sp, char const *sep)
 long long
 strtonum(char const *s, long long min, long long max, char const **errstr)
 {
-	long long ll = 0;
+	long long ll;
 	char *end;
 
 	assert(min < max);
+
 	errno = 0;
 	ll = strtoll(s, &end, 10);
 	if ((errno == ERANGE && ll == LLONG_MIN) || ll < min) {
@@ -113,8 +80,10 @@ fopenread(char const *path)
 	FILE *fp;
 	size_t sz;
 	int c;
-	char *buf = nil;
+	char *buf;
 	void *mem;
+
+	buf = nil;
 
 	if((fp = fopen(path, "r")) == nil)
 		return nil;
