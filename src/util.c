@@ -10,7 +10,7 @@
 char *argv0;
 
 void
-sysfatal(char const *fmt, ...)
+sysfatal(char *fmt, ...)
 {
 	va_list va;
 
@@ -23,19 +23,19 @@ sysfatal(char const *fmt, ...)
 	exit(1);
 }
 
-char *
+char*
 strsep(char **sp, char const *sep)
 {
         char *s, *prev;
 
-        if(*sp == nil)
-                return nil;
+        if(*sp == NULL)
+                return NULL;
 
-        for(s = prev = *sp; strchr(sep, *s) == nil; s++)
+        for(s = prev = *sp; strchr(sep, *s) == NULL; s++)
                 continue;
 
         if(*s == '\0'){
-                *sp = nil;
+                *sp = NULL;
         }else{
                 *s = '\0';
                 *sp = s + 1;
@@ -43,10 +43,10 @@ strsep(char **sp, char const *sep)
         return prev;
 }
 
-long long
-strtonum(char const *s, long long min, long long max, char const **errstr)
+vlong
+strtonum(char const *s, vlong min, vlong max, char const **errstr)
 {
-	long long ll;
+	vlong ll;
 	char *end;
 
 	assert(min < max);
@@ -70,25 +70,25 @@ strtonum(char const *s, long long min, long long max, char const **errstr)
 	}
 	assert(errno == 0);
 	if (errstr)
-		*errstr = nil;
+		*errstr = NULL;
 	return ll;
 }
 
-char *
-fopenread(char const *path)
+char*
+fopenread(char *path)
 {
 	FILE *fp;
-	size_t sz;
+	usize sz;
 	int c;
 	char *buf;
 	void *mem;
 
-	buf = nil;
+	buf = NULL;
 
-	if((fp = fopen(path, "r")) == nil)
-		return nil;
+	if((fp = fopen(path, "r")) == NULL)
+		return NULL;
 	for(sz = 2;; sz++){
-		if((mem = realloc(buf, sz)) == nil)
+		if((mem = realloc(buf, sz)) == NULL)
 			goto Err;
 		buf = mem;
 		if((c = fgetc(fp)) == EOF)
@@ -102,11 +102,11 @@ fopenread(char const *path)
 Err:
 	fclose(fp);
 	free(buf);
-	return nil;
+	return NULL;
 }
 
-char *
-tr(char *str, char const *src, char const *dst)
+char*
+tr(char *str, char *src, char *dst)
 {
 	char *s, *p;
 

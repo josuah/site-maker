@@ -11,7 +11,7 @@ typedef struct Fn Fn;
 struct Fn
 {
 	char *name;
-	void (*fn)(Info *,char *, char *, char *);
+	void (*fn)(Info*, char*, char*, char*);
 };
 
 static void
@@ -43,14 +43,14 @@ Exit:
 static void
 del(Info *info, char *cart, char *ref, char *url)
 {
-	size_t sz, n;
+	usize sz, n;
 	int found;
 	char *new, *item;
 
 	sz = strlen(cart) + 1;
 	n = found = 0;
 
-	if((new = calloc(sz, 1)) == nil)
+	if((new = calloc(sz, 1)) == NULL)
 		sysfatal("malloc");
 
 	while((item = strsep(&cart, ","))){
@@ -85,24 +85,27 @@ cart(void)
 	Fn *f, q;
 	char *url, *ref, *cart;
 
-	info = cgiget(cgicookies(nil));
+	info = cgiget(cgicookies(NULL));
 
-	if((ref = infostr(info, "ref")) == nil)
+	if((ref = infostr(info, "ref")) == NULL)
 		cgifatal("no $ref");
-	if((q.name = infostr(info, "action")) == nil)
+	if((q.name = infostr(info, "action")) == NULL)
 		cgifatal("no $action");
-	if((cart = infostr(info, "cart")) == nil)
+	if((cart = infostr(info, "cart")) == NULL)
 		cart = "";
-	if((url = getenv("HTTP_REFERER")) == nil)
+	if((url = getenv("HTTP_REFERER")) == NULL)
 		url = "/";
-	if((f = bsearch(&q, fmap, L(fmap), sizeof *fmap, cmp)) == nil)
+	if((f = bsearch(&q, fmap, L(fmap), sizeof *fmap, cmp)) == NULL)
 		cgifatal("action %s not found", q.name);
 	f->fn(info, cart, ref, url);
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
+	(void)argc;
+	argv0 = argv[0];
+
 	if(chdir("..") == -1)
 		sysfatal("chdir");
 	if(pledge("stdio", NULL) == -1)

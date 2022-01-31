@@ -10,22 +10,23 @@ show(void)
 	Info *info;
 	char path[256], *ref, *html, *sl;
 
-	info = cgiget(cgicookies(nil));
+	info = cgicookies(NULL);
+	info = cgiget(info);
 
-	if((html = infostr(info, "html")) == nil)
+	if((html = infostr(info, "html")) == NULL)
 		cgifatal("no $html");
-	if((info = inforead(info, "data/info")) == nil)
+	if((info = inforead(info, "data/info")) == NULL)
 		cgifatal("parsing %s: %s", "data/info", infoerr);
 	if((ref = infostr(info, "ref"))){
 		for(sl = ref; sl && (sl = strchr(sl, '/')); sl++){
 			*sl = '\0';
 			snprintf(path, sizeof path, "%s/info", ref);
-			if((info = inforead(info, path)) == nil)
+			if((info = inforead(info, path)) == NULL)
 				cgifatal("parsing %s: %s", path, infoerr);
 			*sl = '/';
 		}
 		snprintf(path, sizeof path, "%s/info", ref);
-		if((info = inforead(info, path)) == nil)
+		if((info = inforead(info, path)) == NULL)
 			cgifatal("parsing %s: %s", path, infoerr);
 	}
 	snprintf(path, sizeof path, "html/page.%s.html", html);
@@ -37,14 +38,18 @@ show(void)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
+	(void)argc;
+	argv0 = argv[0];
+
 	if(chdir("..") == -1)
 		sysfatal("chdir ..");
 	if(unveil("data", "r") == -1
+	|| unveil("news", "r") == -1
 	|| unveil("html", "r") == -1)
 		sysfatal("unveil html");
-	if(pledge("stdio rpath", nil) == -1)
+	if(pledge("stdio rpath", NULL) == -1)
 		sysfatal("pledge stdio rpath");
 	show();
 	return 0;

@@ -1,60 +1,60 @@
 #define CAT_MAX 1000
-#define nil ((void *)0)
 #define L(x) (sizeof(x) / sizeof(*(x)))
 
+typedef long long vlong;
+typedef size_t usize;
 typedef struct Info Info;
-typedef struct InfoRow InfoRow;
+typedef struct Irow Irow;
 
-struct InfoRow
+struct Irow
 {
-	char *key, *val;
+	char*	key;
+	char*	val;
 };
 
 struct Info
 {
-	char *buf;
-
-	InfoRow *vars;
-	size_t len;
-
-	Info *next;
+	char*	buf;
+	Irow*	vars;
+	usize	len;
+	Info*	next;
 };
 
 /* util */
-extern char *arg0;
-void sysfatal(char const *, ...);
-char *strsep(char **, char const *);
-long long strtonum(char const *, long long, long long, char const **);
-char *fopenread(char const *);
-void isort(void *, size_t, size_t, int (*)(void const *, void const *));
-char *tr(char *, char const *, char const *);
+extern char*	argv0;
+extern void	sysfatal(char*, ...);
+extern char*	strsep(char**, const char*);
+extern vlong	strtonum(const char*, vlong, vlong, const char**);
+extern char*	fopenread(char*);
+extern char*	tr(char*, char*, char*);
 
 /* cgi */
-extern Info headers[1], cookies[1];
-Info *cgiget(Info *);
-Info *cgipost(Info *);
-void cgifile(char *, size_t);
-Info *cgienv(Info *);
-Info *cgicookies(Info *);
-void cgihead(char *);
-void cgifatal(char *, ...);
-void cgiredir(int, char *, ...);
+extern Info	headers[1];
+extern Info	cookies[1];
+extern Info*	cgiget(Info*);
+extern Info*	cgipost(Info*);
+extern void	cgifile(char*, usize);
+extern Info*	cgienv(Info*);
+extern Info*	cgicookies(Info*);
+extern void	cgihead(char*);
+extern void	cgifatal(char*, ...);
+extern void	cgiredir(int, char*, ...);
 
 /* info */
-extern char const *infoerr;
-void infoadd(Info *, char *, char*);
-void infosort(Info *);
-void infofree(Info *);
-Info *infopop(Info *);
-void infoset(Info *, char *, char *);
-char *infostr(Info *, char *);
-long long infonum(Info *, char *, long long, long long);
-Info *inforead(Info *, char *);
-int infowrite(Info *, char *);
+extern const char* infoerr;
+extern void	infoadd(Info*, char*, char*);
+extern void	infosort(Info*);
+extern void	infofree(Info*);
+extern Info*	infopop(Info*);
+extern void	infoset(Info*, char*, char*);
+extern char*	infostr(Info*, char*);
+extern vlong	infonum(Info*, char*, vlong, vlong);
+extern Info*	inforead(Info*, char*);
+extern int	infowrite(Info*, char*);
 
 /* html */
-void htmlprint(char *);
-void htmltemplate(char *, Info *);
+extern void	htmlprint(char*);
+extern void	htmltemplate(char*, Info*);
 
 /* fields */
-extern char *catfields[2];
+extern char*	catfields[2];

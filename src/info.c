@@ -11,14 +11,14 @@
  * Simple key-value storage with a fallback mechanism:
  * If the current (Info *) does not have the key queried, the lookup
  * will continue on the (Info *)->next field.
- *
+ * 
  * A RFC822-like format permits to store and read the data on a file:
  *	First-Key-Name: One needle
  *	Second-Key-Name: Two haystacks
  *	Third-Key-Name: Three magnets
- *
+ * 
  *	Extra multiline text that will be read into the "Text" key.
- *
+ * 
  * This permits to mix key-values from various sources such as
  * environment variables, headers, cookies, get/post params, data
  * files...
@@ -28,9 +28,9 @@ char const *infoerr = "(no message)";
 #define Err(msg) { infoerr = msg; goto Err; }
 
 static int
-cmp(void const *v1, void const *v2)
+cmp(const void *v1, const void *v2)
 {
-	return strcasecmp(((InfoRow *)v1)->key, ((InfoRow *)v2)->key);
+	return strcasecmp(((Irow *)v1)->key, ((Irow *)v2)->key);
 }
 
 void
@@ -45,33 +45,33 @@ infoadd(Info *info, char *key, char *val)
 	void *mem;
 
 	info->len++;
-	if((mem = realloc(info->vars, info->len * sizeof *info->vars)) == nil)
+	if((mem = realloc(info->vars, info->len * sizeof *info->vars)) == NULL)
 		 sysfatal("realloc");
 	info->vars = mem;
 	info->vars[info->len-1].key = key;
 	info->vars[info->len-1].val = val;
 }
 
-char *
+char*
 infostr(Info *info, char *key)
 {
-	InfoRow *r, q;
+	Irow *r, q;
 
 	q.key = key;
 
-	if(info == nil)
-		return nil;
+	if(info == NULL)
+		return NULL;
 	if((r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp)))
 		return r->val;
 	return infostr(info->next, key);
 }
 
-long long
-infonum(Info *info, char *key, long long min, long long max)
+vlong
+infonum(Info *info, char *key, vlong min, vlong max)
 {
 	char *val;
 
-	if((val = infostr(info, key)) == nil)
+	if((val = infostr(info, key)) == NULL)
 		Err("key not found");
 	return strtonum(val, min, max, &infoerr);
 Err:
@@ -85,11 +85,11 @@ Err:
 void
 infoset(Info *info, char *key, char *val)
 {
-	InfoRow *r, q;
+	Irow *r, q;
 
 	q.key = key;
 	r = bsearch(&q, info->vars, info->len, sizeof *info->vars, cmp);
-	if(r != nil){
+	if(r != NULL){
 		r->val = val;
 		return;
 	}
@@ -97,7 +97,7 @@ infoset(Info *info, char *key, char *val)
 	infosort(info);
 }
 
-Info *
+Info*
 infopop(Info *info)
 {
 	Info *next;
@@ -111,28 +111,29 @@ infopop(Info *info)
 void
 infofree(Info *info)
 {
-	while((info = infopop(info)) != nil);
+	while((info = infopop(info)) != NULL);
 }
 
-Info *
+Info*
 inforead(Info *next, char *path)
 {
 	Info *info;
 	char *buf, *line, *tail, *key;
 
-	buf = line = nil;
+	buf = line = NULL;
 
-	if((info = calloc(sizeof *info, 1)) == nil)
+	if((info = calloc(sizeof *info, 1)) == NULL)
 		Err(strerror(errno));
 	memset(info, 0, sizeof *info);
 
-	if((tail = buf = fopenread(path)) == nil)
+	tail = buf = fopenread(path);
+	if(buf == NULL)
 		Err(strerror(errno));
-	while((line = strsep(&tail, "\n")) != nil){
+	while((line = strsep(&tail, "\n")) != NULL){
 		if(line[0] == '\0')
 			break;
 		key = strsep(&line, ":");
-		if(line == nil || *line++ != ' ')
+		if(line == NULL || *line++ != ' ')
 			Err("missing ': ' separator");
 		infoadd(info, key, line);
 	}
@@ -144,21 +145,21 @@ inforead(Info *next, char *path)
 Err:
 	free(buf);
 	infofree(info);
-	return nil;
+	return NULL;
 }
 
 int
 infowrite(Info *info, char *dst)
 {
 	FILE *fp;
-	InfoRow *row;
-	size_t n;
+	Irow *row;
+	usize n;
 	char path[1024], *text;
 
-	text = nil;
+	text = NULL;
 
 	snprintf(path, sizeof path, "%s.tmp", dst);
-	if((fp = fopen(path, "w")) == nil)
+	if((fp = fopen(path, "w")) == NULL)
 		Err("opening info file for writing")
 
 	for(row = info->vars, n = info->len; n > 0; row++, n--){
@@ -166,8 +167,8 @@ infowrite(Info *info, char *dst)
 			text = text ? text : row->val;
 			continue;
 		}
-		assert(strchr(row->key, '\n') == nil);
-		assert(strchr(row->val, '\n') == nil);
+		assert(strchr(row->key, '\n') == NULL);
+		assert(strchr(row->val, '\n') == NULL);
 		fprintf(fp, "%s: %s\n", row->key, row->val);
 	}
 	fprintf(fp, "\n%s", text ? text : "");
@@ -177,7 +178,6 @@ infowrite(Info *info, char *dst)
 		Err("applying changes to info file");
 	return 0;
 Err:
-	if(fp)
-		fclose(fp);
+	if(fp) fclose(fp);
 	return -1;
 }

@@ -12,7 +12,7 @@ typedef struct Fn Fn;
 struct Fn
 {
 	char *name;
-	void (*fn)(Info *info); 
+	void (*fn)(Info*); 
 };
 
 void
@@ -45,18 +45,18 @@ static void
 list(Info *info, char *dir, char *expr, char *html)
 {
 	Info tmp;
-	InfoRow row;
+	Irow row;
 	glob_t gl;
 	char path[256], **pp, *sl;
 	int pop;
 
 	snprintf(path, sizeof path, "%s/%s", dir, expr);
-	if(glob(path, 0, nil, &gl) != 0)
+	if(glob(path, 0, NULL, &gl) != 0)
 		goto End;
 
 	for(pp = gl.gl_pathv; *pp; pp++){
 		if(strcmp(sl = strrchr(*pp, '/'), "/info") == 0){
-			if((info = inforead(info, *pp)) == nil)
+			if((info = inforead(info, *pp)) == NULL)
 				sysfatal("parsing %s", *pp);
 			*sl = '\0';
 			pop = 1;
@@ -69,7 +69,7 @@ list(Info *info, char *dir, char *expr, char *html)
 		tmp.vars = &row;
 		tmp.next = info;
 		tmp.len = 1;
-		tmp.buf = nil;
+		tmp.buf = NULL;
 
 		snprintf(path, sizeof path, "html/elem.%s.html", html);
 		htmltemplate(path, &tmp);
@@ -87,13 +87,13 @@ cart(Info *info)
 	Info *new;
 	char *s, *ref, path[256];
 
-	if((s = infostr(info, "cart")) == nil){
+	if((s = infostr(info, "cart")) == NULL){
 		htmltemplate("html/elem.cartempty.html", info);
 		return;
 	}
 	while((ref = strsep(&s, ","))){
 		snprintf(path, sizeof path, "%s/info", ref);
-		if((new = inforead(info, path)) == nil){
+		if((new = inforead(info, path)) == NULL){
 			htmltemplate("html/elem.cartmissing.html", info);
 			continue;
 		}
@@ -107,7 +107,7 @@ static void
 cartcount(Info *info)
 {
 	char *cart;
-	size_t count;
+	usize count;
 
 	count = 0;
 	if((cart = infostr(info, "cart"))){
@@ -127,7 +127,7 @@ nav(Info *info)
 static void
 now(Info *info)
 {
-	fprintf(stdout, "%lld", (long long)time(nil));
+	fprintf(stdout, "%lld", (vlong)time(NULL));
 }
 
 static void
@@ -135,7 +135,7 @@ parent(Info *info)
 {
 	char buf[256], *ref, *sl;
 
-	if((ref = infostr(info, "ref")) == nil)
+	if((ref = infostr(info, "ref")) == NULL)
 		sysfatal("no $ref");
 	strlcpy(buf, ref, sizeof buf);
 	if((sl = strrchr(buf, '/')))
@@ -147,39 +147,39 @@ parent(Info *info)
 static Fn fmap[] = { F(cart), F(cartcount), F(nav), F(now), F(parent) };
 
 static int
-cmp(void const *v1, void const *v2)
+cmp(const void *v1, const void *v2)
 {
 	return strcasecmp(((Fn *)v1)->name, ((Fn *)v2)->name);
 }
 
-static char *
+static char*
 next(char *head, char **tail)
 {
 	char *beg, *end;
 
-	if((beg = strstr(head, "{{")) == nil
-	|| (end = strstr(beg, "}}")) == nil)
-		return nil;
+	if((beg = strstr(head, "{{")) == NULL
+	|| (end = strstr(beg, "}}")) == NULL)
+		return NULL;
 	*beg = *end = '\0';
 	*tail = end + strlen("}}");
 	return beg + strlen("{{");
 }
 
 /*
- * takes a list of (Info *) arguments by order of precedence
+ * takes a list of Info* arguments by order of precedence
  */
 void
 htmltemplate(char *htmlpath, Info *info)
 {
 	FILE *fp;
 	Fn *f, q;
-	size_t sz;
+	usize sz;
 	char *line, *head, *tail, *sp, *ref, *val;
 
 	sz = 0;
-	line = nil;
+	line = NULL;
 
-	if((fp = fopen(htmlpath, "r")) == nil)
+	if((fp = fopen(htmlpath, "r")) == NULL)
 		sysfatal("opening template %s", htmlpath);
 
 	while(getline(&line, &sz, fp) > 0){
@@ -192,7 +192,7 @@ htmltemplate(char *htmlpath, Info *info)
 
 			}else if((sp = strchr(q.name, ' '))){
 				*sp = '\0';
-				if((ref = infostr(info, "ref")) == nil)
+				if((ref = infostr(info, "ref")) == NULL)
 					sysfatal("no $ref");
 				list(info, ref, sp + 1, q.name);
 

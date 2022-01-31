@@ -46,18 +46,18 @@ decode(char *s)
 	}
 }
 
-static Info *
+static Info*
 parsequery(Info *next, char *s)
 {
 	Info *info;
 	char *var, *eq;
 
-	if((info = calloc(sizeof *info, 1)) == nil)
+	if((info = calloc(sizeof *info, 1)) == NULL)
 		sysfatal("calloc");
 
 	while((var = strsep(&s, "&"))){
 		decode(var);
-		if((eq = strchr(var, '=')) == nil)
+		if((eq = strchr(var, '=')) == NULL)
 			continue;
 		*eq = '\0';
 		infoadd(info, var, eq + 1);
@@ -67,35 +67,35 @@ parsequery(Info *next, char *s)
 	return info;
 }
 
-Info *
+Info*
 cgiget(Info *next)
 {
 	char *query;
 
-	if((query = getenv("QUERY_STRING")) == nil)
+	if((query = getenv("QUERY_STRING")) == NULL)
 		cgifatal("no $QUERY_STRING");
 	return parsequery(next, query);
 }
 
-Info *
+Info*
 cgipost(Info *next)
 {
 	Info *info;
-	size_t len;
+	usize len;
 	char *buf, *env;
 
-	if((env = getenv("CONTENT_LENGTH")) == nil)
+	if((env = getenv("CONTENT_LENGTH")) == NULL)
 		sysfatal("no $CONTENT_LENGTH");
 	len = atoi(env);
 
-	if((buf = calloc(len + 1, 1)) == nil)
+	if((buf = calloc(len + 1, 1)) == NULL)
 		sysfatal("calloc");
 
 	fread(buf, len, 1, stdin);
 	if(ferror(stdin) || feof(stdin))
 		cgifatal("reading POST data");
 
-	if((env = getenv("CONTENT_TYPE")) == nil)
+	if((env = getenv("CONTENT_TYPE")) == NULL)
 		cgifatal("no $Content-Type");
 
 	if(strcasecmp(env, "application/x-www-form-urlencoded") != 0)
@@ -106,15 +106,15 @@ cgipost(Info *next)
 	return info;
 }
 
-Info *
+Info*
 cgicookies(Info *next)
 {
 	Info *info;
 	char *env, *val;
 
-	if((info = calloc(sizeof *info, 1)) == nil)
+	if((info = calloc(sizeof *info, 1)) == NULL)
 		sysfatal("calloc");
-	if((env = getenv("HTTP_COOKIE")) == nil)
+	if((env = getenv("HTTP_COOKIE")) == NULL)
 		return info;
 	while((val = strsep(&env, ";"))){
 		val += (*val == ' ');
@@ -126,16 +126,16 @@ cgicookies(Info *next)
 }
 
 void
-cgifile(char *path, size_t len)
+cgifile(char *path, usize len)
 {
 	FILE *fp;
 	pid_t pid;
 	char *env, *s, *bound, *line;
-	size_t sz, boundlen;
+	usize sz, boundlen;
 	int c, nl;
 
 	pid = getpid();
-	line = nil;
+	line = NULL;
 	sz = 0;
 
 	snprintf(path, len, "tmp/%i", pid);
@@ -143,10 +143,10 @@ cgifile(char *path, size_t len)
 		cgifatal("making temporary directory %s", path);
 
 	snprintf(path, len, "tmp/%i/file", pid);
-	if((fp = fopen(path, "w")) == nil)
+	if((fp = fopen(path, "w")) == NULL)
 		cgifatal("opening temporary upload file %s", path);
 
-	if((env = getenv("CONTENT_TYPE")) == nil)
+	if((env = getenv("CONTENT_TYPE")) == NULL)
 		cgifatal("no $Content-Type");
 
 	s = "multipart/form-data; boundary=";
@@ -190,8 +190,8 @@ cgifile(char *path, size_t len)
 void
 cgihead(char *type)
 {
-	InfoRow *row;
-	size_t n;
+	Irow *row;
+	usize n;
 
 	fprintf(stdout, "Content-Type: %s\n", type);
 
