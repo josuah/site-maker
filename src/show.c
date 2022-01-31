@@ -46,7 +46,6 @@ main(int argc, char **argv)
 	if(chdir("..") == -1)
 		sysfatal("chdir ..");
 	if(unveil("data", "r") == -1
-	|| unveil("news", "r") == -1
 	|| unveil("html", "r") == -1)
 		sysfatal("unveil html");
 	if(pledge("stdio rpath", NULL) == -1)

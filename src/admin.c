@@ -243,7 +243,6 @@ main(int argc, char **argv)
 	if(chdir("..") == -1)
 		sysfatal("chdir");
 	if(unveil("data", "rwc")
-	|| unveil("news", "rwc")
 	|| unveil("tmp", "rwc"))
 		sysfatal("unveil");
 	if(pledge("stdio rpath wpath cpath", NULL))
