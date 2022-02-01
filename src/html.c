@@ -53,13 +53,14 @@ list(Info *info, char *dir, char *expr, char *html)
 	if (*expr == '/')
 		snprintf(path, sizeof path, "data%s", expr);
 	else
-		snprintf(path, sizeof path, "%s/%s", dir, expr);
+		snprintf(path, sizeof path, "data/%s/%s", dir, expr);
 
 	if(glob(path, 0, NULL, &gl) != 0)
 		goto End;
 
 	for(pp = gl.gl_pathv; *pp; pp++){
-		if(strcmp(sl = strrchr(*pp, '/'), "/info") == 0){
+		sl = strrchr(*pp, '/');
+		if(sl != NULL && strcmp(sl, "/info") == 0){
 			if((info = inforead(info, *pp)) == NULL)
 				sysfatal("parsing %s", *pp);
 			*sl = '\0';
@@ -143,8 +144,19 @@ parent(Info *info)
 	fputs(buf, stdout);
 }
 
+static void
+strip1(Info *info)
+{
+	char *ref, *new;
+
+	if((ref = infostr(info, "ref")) == NULL)
+		sysfatal("no $ref");
+	new = strchr(ref, '/');
+	fputs((new == NULL) ? "" : new + 1, stdout);
+}
+
 #define F(name) { #name, name }
-static Fn fmap[] = { F(cart), F(cartcount), F(now), F(parent) };
+static Fn fmap[] = { F(cart), F(cartcount), F(now), F(parent), F(strip1) };
 
 static int
 cmp(const void *v1, const void *v2)

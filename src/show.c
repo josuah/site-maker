@@ -20,12 +20,12 @@ show(void)
 	if((ref = infostr(info, "ref"))){
 		for(sl = ref; sl && (sl = strchr(sl, '/')); sl++){
 			*sl = '\0';
-			snprintf(path, sizeof path, "%s/info", ref);
+			snprintf(path, sizeof path, "data/%s/info", ref);
 			if((info = inforead(info, path)) == NULL)
 				cgifatal("parsing %s: %s", path, infoerr);
 			*sl = '/';
 		}
-		snprintf(path, sizeof path, "%s/info", ref);
+		snprintf(path, sizeof path, "data/%s/info", ref);
 		if((info = inforead(info, path)) == NULL)
 			cgifatal("parsing %s: %s", path, infoerr);
 	}
