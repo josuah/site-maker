@@ -139,9 +139,10 @@ parent(Info *info)
 	if((ref = infostr(info, "ref")) == NULL)
 		sysfatal("no $ref");
 	strlcpy(buf, ref, sizeof buf);
-	if((sl = strrchr(buf, '/')))
+	if((sl = strrchr(buf, '/'))) {
 		*sl = '\0';
-	fputs(buf, stdout);
+		fputs(buf, stdout);
+	}
 }
 
 static void
