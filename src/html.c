@@ -126,6 +126,17 @@ cartcount(Info *info)
 }
 
 static void
+date(Info *info)
+{
+	char buf[256];
+	time_t clock;
+
+	clock = time(NULL);
+	strftime(buf, sizeof buf, "%Y-%m-%d", localtime(&clock));
+	fputs(buf, stdout);
+}
+
+static void
 now(Info *info)
 {
 	fprintf(stdout, "%lld", (vlong)time(NULL));
@@ -157,7 +168,7 @@ strip1(Info *info)
 }
 
 #define F(name) { #name, name }
-static Fn fmap[] = { F(cart), F(cartcount), F(now), F(parent), F(strip1) };
+static Fn fmap[] = { F(cart), F(cartcount), F(date), F(now), F(parent), F(strip1) };
 
 static int
 cmp(const void *v1, const void *v2)
