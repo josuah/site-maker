@@ -100,8 +100,10 @@ delinfo(Info *info, char *ref)
 	DIR *dp;
 	char path[1024];
 
-	if((dp = opendir(ref)) == NULL)
-		cgifatal("%s: cannot open directory", ref);
+	snprintf(path, sizeof path, "data/%s", ref);
+	if((dp = opendir(path)) == NULL)
+		cgifatal("%s: cannot open directory", path);
+
 	readdir(dp), readdir(dp), readdir(dp); /* ".", "..", "info" */
 	if(readdir(dp) != NULL)
 		cgifatal("%s: element not empty", ref);
@@ -111,7 +113,8 @@ delinfo(Info *info, char *ref)
 	if(unlink(path) == -1)
 		cgifatal("deleting %s: %s", path, strerror(errno));
 
-	if((rmdir(ref)) == -1)
+	snprintf(path, sizeof path, "data/%s", ref);
+	if((rmdir(path)) == -1)
 		cgifatal("deleting %s: %s", path, strerror(errno));
 
 	return info;

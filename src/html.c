@@ -41,16 +41,52 @@ htmlprint(char *s)
 	}
 }
 
-static void
-list(Info *info, char *dir, char *expr, char *html)
+static Info*
+listitem(Info *info, char *item, char *html)
 {
 	Info tmp;
 	Irow row;
-	glob_t gl;
-	char path[256], **pp, *sl;
+	char path[256], *sl;
 	int pop;
 
-	if (*expr == '/')
+	sl = strrchr(item, '/');
+	if(sl != NULL && strcmp(sl, "/info") == 0){
+		if((info = inforead(info, item)) == NULL)
+			sysfatal("parsing %s", item);
+		*sl = '\0';
+		pop = 1;
+	}else{
+		pop = 0;
+	}
+
+	row.key = "ref";
+	row.val = strchr(item, '/');
+	row.val = (row.val == NULL) ? "" : row.val + 1;
+
+	tmp.vars = &row;
+	tmp.next = info;
+	tmp.len = 1;
+	tmp.buf = NULL;
+
+	snprintf(path, sizeof path, "html/elem.%s.html", html);
+	htmltemplate(path, &tmp);
+
+	return pop ? infopop(info) : info;
+}
+
+static void
+list(Info *info, char *dir, char *expr, char *html)
+{
+	glob_t gl;
+	char path[256], **pp;
+	int reverse = 0;
+
+	if(*expr == '!'){
+		reverse = 1;
+		expr++;
+	}
+
+	if(*expr == '/')
 		snprintf(path, sizeof path, "data%s", expr);
 	else
 		snprintf(path, sizeof path, "data/%s/%s", dir, expr);
@@ -58,31 +94,13 @@ list(Info *info, char *dir, char *expr, char *html)
 	if(glob(path, 0, NULL, &gl) != 0)
 		goto End;
 
-	for(pp = gl.gl_pathv; *pp; pp++){
-		sl = strrchr(*pp, '/');
-		if(sl != NULL && strcmp(sl, "/info") == 0){
-			if((info = inforead(info, *pp)) == NULL)
-				sysfatal("parsing %s", *pp);
-			*sl = '\0';
-			pop = 1;
-		}else{
-			pop = 0;
-		}
-
-		row.key = "ref";
-		row.val = strchr(*pp, '/');
-		row.val = (row.val == NULL) ? "" : row.val + 1;
-
-		tmp.vars = &row;
-		tmp.next = info;
-		tmp.len = 1;
-		tmp.buf = NULL;
-
-		snprintf(path, sizeof path, "html/elem.%s.html", html);
-		htmltemplate(path, &tmp);
-
-		if(pop)
-			info = infopop(info);
+	if(reverse){
+		for(pp = gl.gl_pathv; *pp; pp++);
+		while(pp-- > gl.gl_pathv)
+			info = listitem(info, *pp, html);
+	}else{
+		for(pp = gl.gl_pathv; *pp; pp++)
+			info = listitem(info, *pp, html);
 	}
 End:
 	globfree(&gl);
@@ -150,7 +168,7 @@ parent(Info *info)
 	if((ref = infostr(info, "ref")) == NULL)
 		sysfatal("no $ref");
 	strlcpy(buf, ref, sizeof buf);
-	if((sl = strrchr(buf, '/'))) {
+	if((sl = strrchr(buf, '/'))){
 		*sl = '\0';
 		fputs(buf, stdout);
 	}
