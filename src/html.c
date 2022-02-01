@@ -50,7 +50,11 @@ list(Info *info, char *dir, char *expr, char *html)
 	char path[256], **pp, *sl;
 	int pop;
 
-	snprintf(path, sizeof path, "%s/%s", dir, expr);
+	if (*expr == '/')
+		snprintf(path, sizeof path, "data%s", expr);
+	else
+		snprintf(path, sizeof path, "%s/%s", dir, expr);
+
 	if(glob(path, 0, NULL, &gl) != 0)
 		goto End;
 
@@ -65,7 +69,9 @@ list(Info *info, char *dir, char *expr, char *html)
 		}
 
 		row.key = "ref";
-		row.val = *pp;
+		row.val = strchr(*pp, '/');
+		row.val = (row.val == NULL) ? "" : row.val + 1;
+
 		tmp.vars = &row;
 		tmp.next = info;
 		tmp.len = 1;
@@ -119,12 +125,6 @@ cartcount(Info *info)
 }
 
 static void
-nav(Info *info)
-{
-	list(info, "data", "*/info", "nav");
-}
-
-static void
 now(Info *info)
 {
 	fprintf(stdout, "%lld", (vlong)time(NULL));
@@ -144,7 +144,7 @@ parent(Info *info)
 }
 
 #define F(name) { #name, name }
-static Fn fmap[] = { F(cart), F(cartcount), F(nav), F(now), F(parent) };
+static Fn fmap[] = { F(cart), F(cartcount), F(now), F(parent) };
 
 static int
 cmp(const void *v1, const void *v2)

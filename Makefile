@@ -12,14 +12,14 @@ all: ${BIN}
 ${BIN}: ${BIN:=.o} ${OBJ}
 	${CC} -o $@ ${LDFLAGS} $@.o ${OBJ}
 
-cgi:
+cgi html:
 	mkdir -p $@
 
 tmp data:
 	mkdir -p $@
 	chown -R www:www $@
 
-install: ${BIN} cgi tmp data
+install: ${BIN} cgi html tmp data
 	cp ${BIN} cgi
 	touch data/info
 
