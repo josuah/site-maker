@@ -33,7 +33,7 @@ newid(char *ref, char *suffix)
 	usize i;
 
 	for(i = 1; i < SIZE_MAX; i++){
-		snprintf(path, sizeof path, "%s%zi%s", ref, i, suffix);
+		snprintf(path, sizeof path, "data/%s%zi%s", ref, i, suffix);
 		if(access(path, F_OK) == -1){
 			if(errno == ENOENT){
 				return i;
@@ -71,7 +71,7 @@ addinfo(Info *info, char *ref)
 		cgifatal("writing info to %s: %s", path, strerror(errno));
 
 	snprintf(path, sizeof path, "tmp/%i/%s%zu", pid, leaf, id);
-	snprintf(dest, sizeof dest, "%s%zu", ref, id);
+	snprintf(dest, sizeof dest, "data/%s%zu", ref, id);
 	xrename(path, dest);
 
 	snprintf(path, sizeof path, "tmp/%i", pid);
@@ -87,7 +87,7 @@ editinfo(Info *info, char *ref)
 
 	info = cgipost(info);
 
-	snprintf(path, sizeof path, "%s/info", ref);
+	snprintf(path, sizeof path, "data/%s/info", ref);
 	if(infowrite(info, path))
 		cgifatal("writing info to %s: %s", path, strerror(errno));
 
@@ -107,7 +107,7 @@ delinfo(Info *info, char *ref)
 		cgifatal("%s: element not empty", ref);
 	closedir(dp);
 
-	snprintf(path, sizeof path, "%s/info", ref);
+	snprintf(path, sizeof path, "data/%s/info", ref);
 	if(unlink(path) == -1)
 		cgifatal("deleting %s: %s", path, strerror(errno));
 
@@ -132,7 +132,7 @@ swap(char *ref, int off)
 	if(!isdigit(*p))
 		cgifatal("invalid $ref");
 
-	snprintf(path, sizeof path, "%.*s*", (int)(p - ref), ref);
+	snprintf(path, sizeof path, "data/%.*s*", (int)(p - ref), ref);
         if(glob(path, 0, NULL, &gl) != 0)
 		goto End;
 
@@ -179,7 +179,7 @@ addimg(Info *info, char *ref)
 	cgifile(path, sizeof path);
 	id = newid(ref, ".jpg");
 
-	snprintf(dest, sizeof dest, "%s%zu%s", ref, id, ".jpg");
+	snprintf(dest, sizeof dest, "data/%s%zu%s", ref, id, ".jpg");
 	xrename(path, dest);
 
 	return info;
@@ -190,7 +190,7 @@ delimg(Info *info, char *ref)
 {
 	char path[1024];
 
-	snprintf(path, sizeof path, "%s", ref);
+	snprintf(path, sizeof path, "data/%s", ref);
 	if(unlink(path) == -1)
 		cgifatal("deleting %s", ref);
 
