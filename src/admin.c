@@ -137,10 +137,10 @@ swap(char *ref, int off)
 		goto End;
 
         for(pp = gl.gl_pathv; *pp; pp++)
-		if(strcmp(*pp, ref) == 0)
+		if(strcmp(*pp + strlen("data/"), ref) == 0)
 			break;
 	if(*pp == NULL)
-		cgifatal("%s not found", ref);
+		cgifatal("%s not found", path);
 	if(pp + off < gl.gl_pathv || pp[off] == NULL)
 		goto End;
 
