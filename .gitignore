@@ -1,6 +1,1 @@
-/src/*[!.]?
-/src/*.o
-/cgi
-/tmp
-/data
-/html
+*.cgi

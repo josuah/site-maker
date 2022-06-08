@@ -1,27 +1,10 @@
-BIN = src/show src/admin src/cart
-OBJ = src/html.o src/util.o src/cgi.o src/info.o
-
 LDFLAGS = -static
-CFLAGS = -g -pedantic -std=c99 -Wall -Werror
+CFLAGS = -g -pedantic -std=c99 -Wall -Wextra -Wno-unused-function
 
-all: ${BIN}
+all: index.cgi
+index.cgi: libhttpd.h
 
-.c.o:
-	${CC} -c ${CFLAGS} -o $@ $<
+.SUFFIXES: .cgi
 
-${BIN}: ${BIN:=.o} ${OBJ}
-	${CC} -o $@ ${LDFLAGS} $@.o ${OBJ}
-
-cgi html:
-	mkdir -p $@
-
-tmp data:
-	mkdir -p $@
-	chown -R www:www $@
-
-install: ${BIN} cgi html tmp data
-	cp ${BIN} cgi
-	touch data/info
-
-clean:
-	rm -rf src/*.o ${BIN} tmp/*
+.c.cgi:
+	${CC} ${LDFLAGS} ${CFLAGS} -o $@ $<
