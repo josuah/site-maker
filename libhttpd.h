@@ -16,7 +16,7 @@ enum {
 /* map of glob-like patterns and handlers triggered by them */
 static struct httpd_handler {
 	char const *match;
-	void (*fn)(int method, char const *path, char const *matches[]);
+	void (*fn)(int method, char **matches);
 } *httpd_handlers;
 
 /* main loop executing h->fn() if h->match is matching */
@@ -38,11 +38,13 @@ static void httpd_set_header(char const *key, char const *val);
 static void httpd_send_headers(int code, char const *type);
 
 /* send redirection headers with an HTTP `code` and a custom message `fmt` */
-static void httpd_redir(int code, char *fmt, ...);
+static void httpd_redirect(int code, char *fmt, ...);
 
 
 /// POLICE LINE /// DO NOT CROSS ///
 
+
+#define HTTPD_MATCH_NUM 5
 
 struct httpd_var {
 	char const *key, *val;
@@ -55,10 +57,9 @@ struct httpd_var_list {
 
 static char *httpd_path;
 static struct httpd_var_list httpd_headers;
-static struct httpd_var_list httpd_cookies;
 static struct httpd_var_list httpd_payload;
-static struct httpd_var_list httpd_parameters;
-static int httpd_method;
+static struct httpd_var_list httpd_query_string;
+static struct httpd_var_list httpd_cookies;
 
 static void
 httpd_fatal(char *fmt, ...)
@@ -74,6 +75,16 @@ httpd_fatal(char *fmt, ...)
 	fprintf(stdout, "\n");
 	fprintf(stdout, "error: %s\n", msg);
 	exit(1);
+}
+
+static inline char *
+httpd_get_env(char const *key)
+{
+	char *env;
+
+	if ((env = getenv(key)) == NULL)
+		httpd_fatal("no $%s", key);
+	return env;
 }
 
 static int
@@ -164,7 +175,7 @@ httpd_decode_hex(char *s)
 }
 
 static inline void
-httpd_parse_urlencoded(struct httpd_var_list *vars, char *s)
+httpd_decode_url(struct httpd_var_list *vars, char *s)
 {
 	char *tok, *eq;
 
@@ -179,67 +190,20 @@ httpd_parse_urlencoded(struct httpd_var_list *vars, char *s)
 }
 
 static inline void
-httpd_parse_query_string(void)
-{
-	if ((httpd_path = getenv("QUERY_STRING")) == NULL)
-		httpd_fatal("no $QUERY_STRING");
-	httpd_parse_urlencoded(&httpd_parameters, httpd_path);
-}
-
-static inline void
-httpd_parse_payload(void)
+httpd_receive_payload(void)
 {
 	size_t len;
-	char *buf, *env;
+	char *buf;
 
-	if ((env = getenv("CONTENT_LENGTH")) == NULL)
-		httpd_fatal("no $CONTENT_LENGTH");
-	len = atoi(env);
+	len = atoi(httpd_get_env("CONTENT_LENGTH"));
 	if ((buf = calloc(len + 1, 1)) == NULL)
 		httpd_fatal("calloc");
 	fread(buf, len, 1, stdin);
 	if (ferror(stdin) || feof(stdin))
 		httpd_fatal("reading POST data");
-	if ((env = getenv("CONTENT_TYPE")) == NULL)
-		httpd_fatal("no $Content-Type");
-	if (strcasecmp(env, "application/x-www-form-urlencoded") != 0)
+	if (strcasecmp(httpd_get_env("CONTENT_TYPE"), "application/x-www-form-urlencoded") != 0)
 		httpd_fatal("expecting application/x-httpdw-form-urlencoded");
-	httpd_parse_urlencoded(&httpd_payload, buf);
-}
-
-static inline void
-httpd_parse_cookies(void)
-{
-	char *env, *val;
-
-	if ((env = getenv("HTTP_COOKIE")) == NULL)
-		return;
-	while ((val = strsep(&env, ";"))) {
-		val += (*val == ' ');
-		httpd_add_var(&httpd_cookies, strsep(&val, "="), val);
-	}
-	httpd_sort_var_list(&httpd_cookies);
-}
-
-static inline void
-httpd_parse_method(void)
-{
-	char *env;
-
-	if ((env = getenv("REQUEST_METHOD")) == NULL)
-		httpd_fatal("missing $REQUEST_METHOD");
-	if (strcasecmp(env, "GET"))
-		httpd_method = HTTPD_GET;
-	else if (strcasecmp(env, "POST"))
-		httpd_method = HTTPD_POST;
-	else if (strcasecmp(env, "PUT"))
-		httpd_method = HTTPD_PUT;
-	else if (strcasecmp(env, "PATCH"))
-		httpd_method = HTTPD_PATCH;
-	else if (strcasecmp(env, "DELETE"))
-		httpd_method = HTTPD_DELETE;
-	else
-		httpd_method = HTTPD_CUSTOM;
+	httpd_decode_url(&httpd_payload, buf);
 }
 
 static void
@@ -253,9 +217,7 @@ httpd_receive_file(char const *path)
 	line = NULL;
 	sz = 0;
 
-	if ((env = getenv("CONTENT_TYPE")) == NULL)
-		httpd_fatal("no $Content-Type");
-
+	env = httpd_get_env("CONTENT_TYPE");
 	s = "multipart/form-data; boundary=";
 	if (strncasecmp(env, s, strlen(s)) != 0)
 		httpd_fatal("expecting \"%s\"", s);
@@ -327,7 +289,7 @@ httpd_send_headers(int code, char const *type)
 }
 
 static void
-httpd_redir(int code, char *fmt, ...)
+httpd_redirect(int code, char *fmt, ...)
 {
 	va_list va;
 	char url[1024];
@@ -341,28 +303,91 @@ httpd_redir(int code, char *fmt, ...)
 }
 
 static inline int
-httpd_path_match(char const *match, char const *path)
+httpd_match(char const *glob, char *path, char **matches, size_t m)
 {
-	// TODO: '\1' and '**' and '/'
-	while (*match != '*' && *path != '\0' && *match == *path)
-		match++, path++;
-	if (match[0] == '*') {
-		if ((*match != '\0' && httpd_path_match(match + 1, path) == 0)
-		 || (*path != '\0' && httpd_path_match(match, path + 1) == 0))
-			return 0;
+	if (m >= HTTPD_MATCH_NUM)
+		httpd_fatal("too many wildcards in glob");
+	matches[m] = NULL;
+	while (*glob != '*' && *path != '\0' && *glob == *path)
+		glob++, path++;
+	if (glob[0] == '*') {
+		if (*glob != '\0' && httpd_match(glob + 1, path, matches, m + 1) >= 0) {
+			if (matches[m] == NULL)
+				matches[m] = path;
+			*path = '\0';
+			return m;
+		} else if (*path != '\0' && httpd_match(glob, path + 1, matches, m) >= 0) {
+			matches[m] = (char *)path;
+			return m;
+		}
 	}
-	return (*match == '\0' && *path == '\0') ? 0 : -1;
+	return (*glob == '\0' && *path == '\0') ? m : -1;
+}
+
+static inline int
+httpd_parse_method(void)
+{
+	char *env;
+	static struct {
+		char const *name;
+		int val;
+	} map[] = {
+		{ "GET",	HTTPD_GET },
+		{ "POST",	HTTPD_POST },
+		{ "PUT",	HTTPD_PUT },
+		{ "PATCH",	HTTPD_PATCH },
+		{ "DELETE",	HTTPD_DELETE },
+		{ NULL,		HTTPD_CUSTOM }
+	}, *m;
+
+	env = httpd_get_env("REQUEST_METHOD");
+	for (m = map; m->name != NULL && strcasecmp(env, m->name) != 0; m++);
+	return m->val;
+}
+
+static inline void
+httpd_parse_cookies(void)
+{
+	char *env;
+
+	if ((env = getenv("HTTP_COOKIE")) == NULL)
+		return;
+	for (char *val; (val = strsep(&env, ";"));) {
+		val += (*val == ' ');
+		httpd_add_var(&httpd_cookies, strsep(&val, "="), val);
+	}
+	httpd_sort_var_list(&httpd_cookies);
+}
+
+static inline void
+httpd_parse_query_string(void)
+{
+	httpd_decode_url(&httpd_query_string, httpd_get_env("QUERY_STRING"));
 }
 
 static void
 httpd_handle_request(struct httpd_handler h[])
 {
+	char *path;
+	int method;
+	size_t len;
+
+	path = httpd_get_env("PATH_INFO");
+	method = httpd_parse_method();
+	httpd_parse_cookies();
 	httpd_parse_query_string();
-	httpd_parse_method();
+
+	len = strlen(path);
+	if (len == 0 || path[len - 1] != '/') {
+		httpd_redirect(301, "%s/", path);
+		return;
+	}
 
 	for (; h->match != NULL; h++) {
-		if (httpd_path_match(h->match, httpd_path) == 0) {
-			h->fn(httpd_method, httpd_path, NULL);
+		char *matches[HTTPD_MATCH_NUM + 1];
+
+		if (httpd_match(h->match, path, matches, 0) == 0) {
+			h->fn(method, matches);
 			return;
 		}
 	}

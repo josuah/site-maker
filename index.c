@@ -7,10 +7,9 @@
 #include "libhttpd.h"
 
 static void
-show_404(int method, char const *path, char const *matches[])
+show_404(int method, char **matches)
 {
 	(void)method;
-	(void)path;
 	(void)matches;
 
 	httpd_send_headers(404, "text/html");
@@ -18,18 +17,28 @@ show_404(int method, char const *path, char const *matches[])
 }
 
 static void
-show_test(int method, char const *path, char const *matches[])
+show_test(int method, char **matches)
 {
 	(void)method;
-	(void)path;
 	(void)matches;
 
 	httpd_send_headers(200, "text/html");
 	printf("<h1>You found the test page</h1>\n");
 }
 
+static void
+show_home(int method, char **matches)
+{
+	(void)method;
+	(void)matches;
+
+	httpd_send_headers(200, "text/html");
+	printf("<h1>Home</h1>\n");
+}
+
 static struct httpd_handler handlers[] = {
-	{ "/test",	show_test },
+	{ "/test/",	show_test },
+	{ "/",		show_home },
 	{ "/*",		show_404 },
 	{ NULL,		NULL },
 };
