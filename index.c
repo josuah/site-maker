@@ -29,11 +29,13 @@ show_test(int method, char **matches)
 static void
 show_home(int method, char **matches)
 {
+	struct httpd_var_list vars = {0};
 	(void)method;
 	(void)matches;
 
+	httpd_set_var(&vars, "title", "Accueil - metairies.org");
 	httpd_send_headers(200, "text/html");
-	printf("<h1>Home</h1>\n");
+	httpd_template("template.head.html", &vars);
 }
 
 static struct httpd_handler handlers[] = {
@@ -46,7 +48,7 @@ static struct httpd_handler handlers[] = {
 int
 main(void)
 {
-	pledge("stdio", NULL);
+	pledge("stdio rpath", NULL);
 	httpd_handle_request(handlers);
 	return 0;
 }

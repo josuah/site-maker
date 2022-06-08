@@ -13,13 +13,22 @@ enum {
 	HTTPD_ANY	= 1 << 6,
 };
 
-/* map of glob-like patterns and handlers triggered by them */
-static struct httpd_handler {
-	char const *match;
+/* maps glob pattern */
+struct httpd_handler {
+	char const *glob;
 	void (*fn)(int method, char **matches);
-} *httpd_handlers;
+};
 
-/* main loop executing h->fn() if h->match is matching */
+/* storage for key-value pair */
+struct httpd_var_list {
+	struct httpd_var {
+		char const *key, *val;
+	} *list;
+	size_t len;
+	char *buf;
+};
+
+/* main loop executing h->fn() if h->glob is matching */
 static void httpd_handle_request(struct httpd_handler h[]);
 
 /* abort the program with an error message sent to the client */
@@ -40,20 +49,23 @@ static void httpd_send_headers(int code, char const *type);
 /* send redirection headers with an HTTP `code` and a custom message `fmt` */
 static void httpd_redirect(int code, char *fmt, ...);
 
+/* print a template with every "{{name}}" looked up in `vars` */
+static void httpd_template(char const *path, struct httpd_var_list *vars);
+
+/* print `s` with all html-special characters escaped */
+static void httpd_print_html(char const *s);
+
+/* manage a `key`-`val` pair storage `vars`, as used with httpd_template */
+static void httpd_add_var(struct httpd_var_list *vars, char const *key, char const *val);
+static void httpd_sort_var_list(struct httpd_var_list *vars);
+static void httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val);
+static char const *httpd_get_var(struct httpd_var_list *vars, char *key);
+
 
 /// POLICE LINE /// DO NOT CROSS ///
 
 
 #define HTTPD_MATCH_NUM 5
-
-struct httpd_var {
-	char const *key, *val;
-};
-
-struct httpd_var_list {
-	size_t len;
-	struct httpd_var *list;
-};
 
 static char *httpd_path;
 static struct httpd_var_list httpd_headers;
@@ -93,7 +105,7 @@ httpd_cmp_var(const void *v1, const void *v2)
 	return strcasecmp(((struct httpd_var *)v1)->key, ((struct httpd_var *)v2)->key);
 }
 
-static inline void
+static void
 httpd_add_var(struct httpd_var_list *vars, char const *key, char const *val)
 {
 	void *mem;
@@ -106,32 +118,30 @@ httpd_add_var(struct httpd_var_list *vars, char const *key, char const *val)
 	vars->list[vars->len-1].val = val;
 }
 
-static inline char const *
-httpd_get_var(struct httpd_var_list *vars, char *key)
-{
-	struct httpd_var *r, q;
-
-	q.key = key;
-	if ((r = bsearch(&q, vars->list, vars->len, sizeof *vars->list, httpd_cmp_var)))
-		return r->val;
-	return NULL;
-}
-
-static inline void
+static void
 httpd_sort_var_list(struct httpd_var_list *vars)
 {
 	qsort(vars->list, vars->len, sizeof *vars->list, httpd_cmp_var);
 }
 
-static inline void
+static char const *
+httpd_get_var(struct httpd_var_list *vars, char *key)
+{
+	struct httpd_var *v, q = { .key = key };
+
+	v = bsearch(&q, vars->list, vars->len, sizeof *vars->list, httpd_cmp_var);
+	return (v == NULL) ? NULL : v->val;
+}
+
+static void
 httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val)
 {
-	struct httpd_var *r, q;
+	struct httpd_var *v, q;
 
 	q.key = key;
-	r = bsearch(&q, vars->list, vars->len, sizeof *vars->list, httpd_cmp_var);
-	if (r != NULL) {
-		r->val = val;
+	v = bsearch(&q, vars->list, vars->len, sizeof *vars->list, httpd_cmp_var);
+	if (v != NULL) {
+		v->val = val;
 		return;
 	}
 	httpd_add_var(vars, key, val);
@@ -383,15 +393,82 @@ httpd_handle_request(struct httpd_handler h[])
 		return;
 	}
 
-	for (; h->match != NULL; h++) {
+	for (; h->glob != NULL; h++) {
 		char *matches[HTTPD_MATCH_NUM + 1];
 
-		if (httpd_match(h->match, path, matches, 0) == 0) {
+		if (httpd_match(h->glob, path, matches, 0) == 0) {
 			h->fn(method, matches);
 			return;
 		}
 	}
 	httpd_fatal("no handler for '%s'", httpd_path);
+}
+
+static void
+httpd_print_html(char const *s)
+{
+	for (; *s != '\0'; s++) {
+		switch(*s) {
+		case '<':
+			fputs("&lt;", stdout);
+			break;
+		case '>':
+			fputs("&gt;", stdout);
+			break;
+		case '"':
+			fputs("&quot;", stdout);
+			break;
+		case '\'':
+			fputs("&#39;", stdout);
+			break;
+		case '&':
+			fputs("&amp;", stdout);
+			break;
+		default:
+			fputc(*s, stdout);
+		}
+	}
+}
+
+static inline char*
+httpd_next_var(char *head, char **tail)
+{
+	char *beg, *end;
+
+	if ((beg = strstr(head, "{{")) == NULL
+	  || (end = strstr(beg, "}}")) == NULL)
+		return NULL;
+	*beg = *end = '\0';
+	*tail = end + strlen("}}");
+	return beg + strlen("{{");
+}
+
+static void
+httpd_template(char const *path, struct httpd_var_list *vars)
+{
+	FILE *fp;
+	size_t sz;
+	char *line, *head, *tail, *key;
+	char const *val;
+
+	sz = 0;
+	line = NULL;
+
+	if ((fp = fopen(path, "r")) == NULL)
+		httpd_fatal("opening template %s", path);
+
+	while (getline(&line, &sz, fp) > 0) {
+		head = tail = line;
+		for (; (key = httpd_next_var(head, &tail)); head = tail) {
+			fputs(head, stdout);
+			if ((val = httpd_get_var(vars, key)))
+				httpd_print_html(val);
+			else
+				fprintf(stdout, "{{error:%s}}", key);
+		}
+		fputs(tail, stdout);
+	}
+	fclose(fp);
 }
 
 #endif
