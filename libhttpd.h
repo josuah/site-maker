@@ -85,9 +85,6 @@ httpd_fatal(char *fmt, ...)
 	va_start(va, fmt);
 	vsnprintf(msg, sizeof msg, fmt, va);
 	va_end(va);
-	fprintf(stdout, "Status: 500 %s\n", msg);
-	fprintf(stdout, "Content-Type: text/plain\n");
-	fprintf(stdout, "\n");
 	fprintf(stdout, "error: %s\n", msg);
 	exit(1);
 }
@@ -100,6 +97,26 @@ httpd_get_env(char const *key)
 	if ((env = getenv(key)) == NULL)
 		httpd_fatal("no $%s", key);
 	return env;
+}
+
+static inline char *
+httpd_fopenread(char *path)
+{
+	FILE *fp;
+	char *buf;
+	size_t sz;
+
+	if ((fp = fopen(path, "r")) == NULL)
+		return NULL;
+	fseek(fp, 0, SEEK_END);
+	sz = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	if ((buf = malloc(sz + 1)) == NULL)
+		return NULL;
+	fread(buf, sz, 1, fp);
+	fclose(fp);
+	buf[sz] = '\0';
+	return ferror(fp) ? NULL : buf;
 }
 
 static int
@@ -149,6 +166,66 @@ httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val)
 	}
 	httpd_add_var(vars, key, val);
 	httpd_sort_var_list(vars);
+}
+
+static void
+httpd_read_var_list(struct httpd_var_list *vars, char *path)
+{
+	char *line, *tail, *key;
+
+	line = NULL;
+
+	if ((tail = vars->buf = httpd_fopenread(path)) == NULL)
+		httpd_fatal("opening %s: %s", path, strerror(errno));
+	while ((line = strsep(&tail, "\n")) != NULL) {
+		if (line[0] == '\0')
+			break;
+		key = strsep(&line, ":");
+		if (line == NULL || *line++ != ' ')
+			httpd_fatal("%s: missing ': ' separator", path);
+		httpd_add_var(vars, key, line);
+	}
+	httpd_add_var(vars, "Text", tail ? tail : "");
+	httpd_sort_var_list(vars);
+}
+
+static void
+httpd_free_var_list(struct httpd_var_list *vars)
+{
+	free(vars->buf);
+	free(vars->list);
+}
+
+static int
+httpd_write_var_list(struct httpd_var_list *vars, char *dst)
+{
+	FILE *fp;
+	struct httpd_var *v;
+	size_t n;
+	char path[1024];
+	char const *text;
+
+	text = NULL;
+
+	snprintf(path, sizeof path, "%s.tmp", dst);
+	if ((fp = fopen(path, "w")) == NULL)
+		httpd_fatal("opening '%s' for writing", path);
+
+	for (v = vars->list, n = vars->len; n > 0; v++, n--) {
+		if (strcasecmp(v->key, "Text") == 0) {
+			text = text ? text : v->val;
+			continue;
+		}
+		assert(strchr(v->key, '\n') == NULL);
+		assert(strchr(v->val, '\n') == NULL);
+		fprintf(fp, "%s: %s\n", v->key, v->val);
+	}
+	fprintf(fp, "\n%s", text ? text : "");
+
+	fclose(fp);
+	if (rename(path, dst) == -1)
+		httpd_fatal( "renaming '%s' to '%s'", path, dst);
+	return 0;
 }
 
 static inline void
@@ -472,86 +549,6 @@ httpd_template(char const *path, struct httpd_var_list *vars)
 		fputs(tail, stdout);
 	}
 	fclose(fp);
-}
-
-static inline char *
-httpd_fopenread(char *path)
-{
-	FILE *fp;
-	char *buf;
-	size_t sz;
-
-	if ((fp = fopen(path, "r")) == NULL)
-		return NULL;
-	fseek(fp, 0, SEEK_END);
-	sz = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-	if ((buf = malloc(sz + 1)) == NULL)
-		return NULL;
-	fread(buf, sz, 1, fp);
-	fclose(fp);
-	buf[sz] = '\0';
-	return ferror(fp) ? NULL : buf;
-}
-
-static void
-httpd_read_var_list(struct httpd_var_list *vars, char *path)
-{
-	char *line, *tail, *key;
-
-	line = NULL;
-
-	if ((tail = vars->buf = httpd_fopenread(path)) == NULL)
-		httpd_fatal("opening %s: %s", path, strerror(errno));
-	while ((line = strsep(&tail, "\n")) != NULL) {
-		if (line[0] == '\0')
-			break;
-		key = strsep(&line, ":");
-		if (line == NULL || *line++ != ' ')
-			httpd_fatal("%s: missing ': ' separator", path);
-		httpd_add_var(vars, key, line);
-	}
-	httpd_add_var(vars, "Text", tail ? tail : "");
-	httpd_sort_var_list(vars);
-}
-
-static void
-httpd_free_var_list(struct httpd_var_list *vars)
-{
-	free(vars->buf);
-	free(vars->list);
-}
-
-static int
-httpd_write_var_list(struct httpd_var_list *vars, char *dst)
-{
-	FILE *fp;
-	struct httpd_var *v;
-	size_t n;
-	char path[1024];
-	char const *text;
-
-	text = NULL;
-
-	snprintf(path, sizeof path, "%s.tmp", dst);
-	if ((fp = fopen(path, "w")) == NULL)
-		httpd_fatal("opening '%s' for writing", path);
-
-	for (v = vars->list, n = vars->len; n > 0; v++, n--) {
-		if (strcasecmp(v->key, "Text") == 0) {
-			text = text ? text : v->val;
-			continue;
-		}
-		assert(strchr(v->key, '\n') == NULL);
-		assert(strchr(v->val, '\n') == NULL);
-		fprintf(fp, "%s: %s\n", v->key, v->val);
-	}
-	fprintf(fp, "\n%s", text ? text : "");
-
-	fclose(fp);
-	if (rename(path, dst) == -1)
-		httpd_fatal( "renaming '%s' to '%s'", path, dst);
-	return 0;
 }
 
 #endif
