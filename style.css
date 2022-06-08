@@ -1,0 +1,96 @@
+html {
+	background-attachment: fixed;
+	background-image: linear-gradient(#FFFFFF, #FFFFFF);
+}
+
+body {
+	color: black;
+
+	display: block;
+	margin: auto;
+	padding: 0 10%;
+	padding-bottom: 150px;
+	line-height: 1.3em;
+	max-width: 1000px;
+
+	font-size: 0.44cm;
+	font-family: sans-serif;
+
+	background-image: url('/img/pattern.png');
+	background-size: 70px;
+	background-repeat: repeat-x;
+	background-position: bottom;
+}
+
+body > * {
+	margin: 30px auto;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+header img {
+	margin: auto;
+	display: block;
+}
+
+nav, aside {
+	text-align: center;
+}
+
+aside a, nav a {
+	line-height: 1.8em;
+	display: inline-block;
+	margin: 10px;
+	border-top: solid 3px #FFFFFF;
+	text-decoration: none;
+}
+
+.img, header img {
+	max-width: calc(100% - 20px - 2px);
+}
+
+.img {
+	width: 500px;
+	line-height: 0em;
+}
+
+.img {
+	display: block;
+	margin: 10px auto;
+	padding: 10px;
+	border: solid 1px #76b;
+}
+
+.img:target {
+	width: 800px;
+}
+
+.img:target, .img:hover {
+	background-color: white;
+}
+
+.img > * {
+	width: 100%;
+}
+
+h1, h2, h3 {
+	margin-top: 3em;
+	line-height: 1.5em;
+}
+
+a {
+	color: inherit;
+}
+
+pre {
+	white-space: pre-wrap;
+	font-family: sans-serif;
+}
+
+table, textarea, input {
+	width: 100%;
+}
+
+footer {
+	margin-top: 7em;
+}
