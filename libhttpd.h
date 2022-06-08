@@ -62,6 +62,7 @@ static void httpd_set_var(struct httpd_var_list *vars, char const *key, char con
 static char const *httpd_get_var(struct httpd_var_list *vars, char *key);
 static void httpd_read_var_list(struct httpd_var_list *vars, char *path);
 static int httpd_write_var_list(struct httpd_var_list *vars, char *path);
+static void httpd_free_var_list(struct httpd_var_list *vars);
 
 
 /// POLICE LINE /// DO NOT CROSS ///
@@ -512,6 +513,13 @@ httpd_read_var_list(struct httpd_var_list *vars, char *path)
 	}
 	httpd_add_var(vars, "Text", tail ? tail : "");
 	httpd_sort_var_list(vars);
+}
+
+static void
+httpd_free_var_list(struct httpd_var_list *vars)
+{
+	free(vars->buf);
+	free(vars->list);
 }
 
 static int
