@@ -37,7 +37,8 @@ show_home(int method, char **matches)
 
 	httpd_set_var(&vars, "title", "Accueil - metairies.org");
 	httpd_send_headers(200, "text/html");
-	httpd_template("template.head.html", &vars);
+	httpd_template("html/head.html", &vars);
+	httpd_template("html/foot.html", &vars);
 }
 
 static struct httpd_handler handlers[] = {
@@ -50,6 +51,7 @@ static struct httpd_handler handlers[] = {
 int
 main(void)
 {
+	unveil("html", "r");
 	pledge("stdio rpath", NULL);
 	httpd_handle_request(handlers);
 	return 0;
