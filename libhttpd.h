@@ -10,19 +10,20 @@ enum {
 	HTTPD_PATCH	= 1 << 3,
 	HTTPD_DELETE	= 1 << 4,
 	HTTPD_CUSTOM	= 1 << 5,
-	HTTPD_ANY	= 1 << 6,
+	HTTPD_ANY	= 0xFF,
 };
 
 /* maps glob pattern */
 struct httpd_handler {
+	int method;
 	char const *glob;
-	void (*fn)(int method, char **matches);
+	void (*fn)(char **matches);
 };
 
 /* storage for key-value pair */
 struct httpd_var_list {
 	struct httpd_var {
-		char const *key, *val;
+		char *key, *val;
 	} *list;
 	size_t len;
 	char *buf;
@@ -41,7 +42,7 @@ static void httpd_receive_file(char const *path);
 static void httpd_receive_payload(void);
 
 /* set the response header `key` to be `val` */
-static void httpd_set_header(char const *key, char const *val);
+static void httpd_set_header(char *key, char *val);
 
 /* send the HTTP and CGI headers to the client, with Content-Type set to `type` */
 static void httpd_send_headers(int code, char const *type);
@@ -56,10 +57,10 @@ static void httpd_template(char const *path, struct httpd_var_list *vars);
 static void httpd_print_html(char const *s);
 
 /* manage a `key`-`val` pair storage `vars`, as used with httpd_template */
-static void httpd_add_var(struct httpd_var_list *vars, char const *key, char const *val);
+static void httpd_add_var(struct httpd_var_list *vars, char *key, char *val);
 static void httpd_sort_var_list(struct httpd_var_list *vars);
-static void httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val);
-static char const *httpd_get_var(struct httpd_var_list *vars, char *key);
+static void httpd_set_var(struct httpd_var_list *vars, char *key, char *val);
+static char *httpd_get_var(struct httpd_var_list *vars, char *key);
 static void httpd_read_var_list(struct httpd_var_list *vars, char *path);
 static int httpd_write_var_list(struct httpd_var_list *vars, char *path);
 static void httpd_free_var_list(struct httpd_var_list *vars);
@@ -70,7 +71,6 @@ static void httpd_free_var_list(struct httpd_var_list *vars);
 
 #define HTTPD_MATCH_NUM 5
 
-static char *httpd_path;
 static struct httpd_var_list httpd_headers;
 static struct httpd_var_list httpd_payload;
 static struct httpd_var_list httpd_query_string;
@@ -85,6 +85,7 @@ httpd_fatal(char *fmt, ...)
 	va_start(va, fmt);
 	vsnprintf(msg, sizeof msg, fmt, va);
 	va_end(va);
+	fprintf(stdout, "Status: 500 Server Error\n\n");
 	fprintf(stdout, "error: %s\n", msg);
 	exit(1);
 }
@@ -126,7 +127,7 @@ httpd_cmp_var(const void *v1, const void *v2)
 }
 
 static void
-httpd_add_var(struct httpd_var_list *vars, char const *key, char const *val)
+httpd_add_var(struct httpd_var_list *vars, char *key, char *val)
 {
 	void *mem;
 
@@ -144,7 +145,7 @@ httpd_sort_var_list(struct httpd_var_list *vars)
 	qsort(vars->list, vars->len, sizeof *vars->list, httpd_cmp_var);
 }
 
-static char const *
+static char *
 httpd_get_var(struct httpd_var_list *vars, char *key)
 {
 	struct httpd_var *v, q = { .key = key };
@@ -154,7 +155,7 @@ httpd_get_var(struct httpd_var_list *vars, char *key)
 }
 
 static void
-httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val)
+httpd_set_var(struct httpd_var_list *vars, char *key, char *val)
 {
 	struct httpd_var *v, q;
 
@@ -171,7 +172,7 @@ httpd_set_var(struct httpd_var_list *vars, char const *key, char const *val)
 static void
 httpd_read_var_list(struct httpd_var_list *vars, char *path)
 {
-	char *line, *tail, *key;
+	char *line, *tail, *key, *s;
 
 	line = NULL;
 
@@ -186,6 +187,7 @@ httpd_read_var_list(struct httpd_var_list *vars, char *path)
 		httpd_add_var(vars, key, line);
 	}
 	httpd_add_var(vars, "Text", tail ? tail : "");
+	httpd_add_var(vars, "File", (s = strrchr(path, '/')) ? s + 1 : path);
 	httpd_sort_var_list(vars);
 }
 
@@ -203,7 +205,7 @@ httpd_write_var_list(struct httpd_var_list *vars, char *dst)
 	struct httpd_var *v;
 	size_t n;
 	char path[1024];
-	char const *text;
+	char *text;
 
 	text = NULL;
 
@@ -349,14 +351,14 @@ httpd_receive_file(char const *path)
 }
 
 static void
-httpd_set_header(char const *key, char const *val)
+httpd_set_header(char *key, char *val)
 {
 	httpd_set_var(&httpd_headers, key, val);
 	httpd_sort_var_list(&httpd_headers);
 }
 
 static void
-httpd_add_header(char const *key, char const *val)
+httpd_add_header(char *key, char *val)
 {
 	httpd_add_var(&httpd_headers, key, val);
 	httpd_sort_var_list(&httpd_headers);
@@ -475,13 +477,14 @@ httpd_handle_request(struct httpd_handler h[])
 
 	for (; h->glob != NULL; h++) {
 		char *matches[HTTPD_MATCH_NUM + 1];
-
-		if (httpd_match(h->glob, path, matches, 0) == 0) {
-			h->fn(method, matches);
-			return;
-		}
+		if (!(h->method & method))
+			continue;
+		if (httpd_match(h->glob, path, matches, 0) != 0)
+			continue;
+		h->fn(matches);
+		return;
 	}
-	httpd_fatal("no handler for '%s'", httpd_path);
+	httpd_fatal("no handler for '%s'", path);
 }
 
 static void
@@ -529,7 +532,7 @@ httpd_template(char const *path, struct httpd_var_list *vars)
 	FILE *fp;
 	size_t sz;
 	char *line, *head, *tail, *key;
-	char const *val;
+	char *val;
 
 	sz = 0;
 	line = NULL;

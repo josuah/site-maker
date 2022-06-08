@@ -1,96 +1,44 @@
-html {
-	background-attachment: fixed;
-	background-image: linear-gradient(#FFFFFF, #FFFFFF);
-}
-
 body {
-	color: black;
-
-	display: block;
-	margin: auto;
-	padding: 0 10%;
-	padding-bottom: 150px;
-	line-height: 1.3em;
-	max-width: 1000px;
-
-	font-size: 0.44cm;
 	font-family: sans-serif;
-
-	background-image: url('/img/pattern.png');
-	background-size: 70px;
-	background-repeat: repeat-x;
-	background-position: bottom;
-}
-
-body > * {
-	margin: 30px auto;
-	margin-left: auto;
-	margin-right: auto;
-}
-
-header img {
-	margin: auto;
-	display: block;
-}
-
-nav, aside {
-	text-align: center;
-}
-
-aside a, nav a {
-	line-height: 1.8em;
-	display: inline-block;
-	margin: 10px;
-	border-top: solid 3px #FFFFFF;
-	text-decoration: none;
-}
-
-.img, header img {
-	max-width: calc(100% - 20px - 2px);
-}
-
-.img {
-	width: 500px;
-	line-height: 0em;
-}
-
-.img {
-	display: block;
-	margin: 10px auto;
-	padding: 10px;
-	border: solid 1px #76b;
-}
-
-.img:target {
-	width: 800px;
-}
-
-.img:target, .img:hover {
-	background-color: white;
-}
-
-.img > * {
-	width: 100%;
-}
-
-h1, h2, h3 {
-	margin-top: 3em;
-	line-height: 1.5em;
+	margin: 0;
+	padding: 0;
 }
 
 a {
+	text-decoration: none;
 	color: inherit;
 }
 
-pre {
-	white-space: pre-wrap;
-	font-family: sans-serif;
+body > * {
+	padding: 0 calc(50% - 500px);
+	line-height: 1.4em;
 }
 
-table, textarea, input {
-	width: 100%;
+header p {
+	margin: 0;
 }
 
-footer {
-	margin-top: 7em;
+header {
+	color: #FFF;
+	background-color: #000;
+}
+
+header img {
+	height: 100px;
+}
+
+header > aside {
+	float: right;
+	text-align: left;
+}
+
+nav a {
+	border-left: solid 1px;
+	border-right: solid 1px;
+	padding: 0 10px;
+}
+
+nav a:hover {
+	background-color: #508;
+	color: #FFF;
 }
