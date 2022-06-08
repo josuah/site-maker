@@ -13,7 +13,7 @@ show_404(int method, char **matches)
 	(void)matches;
 
 	httpd_send_headers(404, "text/html");
-	printf("<h1>404: page not found</h1>\n");
+	printf("<h1>404: page '%s' not found</h1>\n", matches[0]);
 }
 
 static void
@@ -39,7 +39,7 @@ show_home(int method, char **matches)
 static struct httpd_handler handlers[] = {
 	{ "/test/",	show_test },
 	{ "/",		show_home },
-	{ "/*",		show_404 },
+	{ "*",		show_404 },
 	{ NULL,		NULL },
 };
 
