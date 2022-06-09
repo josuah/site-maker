@@ -147,12 +147,19 @@ error_404(char **matches)
 }
 
 static void
+home_loop_category(struct httpd_var_list *category)
+{
+	httpd_template("html/home-category.html", category);
+}
+
+static void
 page_home(char **matches)
 {
 	(void)matches;
 
 	website_head("Accueil");
 	httpd_template("html/home.html", &website);
+	loop(&website, "category", home_loop_category);
 	website_foot();
 }
 
