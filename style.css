@@ -34,9 +34,26 @@ header > aside {
 }
 
 nav a {
-	border-left: solid 1px;
-	border-right: solid 1px;
+	border: solid 1px #508;
+	color: #508;
 	padding: 0 10px;
+	display: inline-block;
+	margin: 0;
+}
+
+nav a:hover {
+	background-color: #508;
+	color: #FFF;
+}
+
+nav a:last-child {
+	float: right;
+}
+
+#cart-count {
+	background-color: #F00;
+	color: #FFF;
+	padding: 1px 4px;
 }
 
 form input[type=submit] {
@@ -45,11 +62,6 @@ form input[type=submit] {
 
 form input[type=input] {
 	width: calc(100% - 100px);
-}
-
-nav a:hover {
-	background-color: #508;
-	color: #FFF;
 }
 
 h2 {

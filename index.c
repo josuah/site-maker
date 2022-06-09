@@ -139,17 +139,20 @@ website_loop_nav_category(struct httpd_var_list *vars)
 static void
 website_head(char *page_name)
 {
+	int cart_count = website_get_cart_count();
+
 	httpd_read_var_list(&website, "db/website");
 	httpd_set_var(&website, "page-name", page_name);
 	httpd_send_headers(200, "text/html");
 
 	httpd_template("html/website-head.html", &website);
-
 	printf("<nav>\n");
 	loop(&website, "category", website_loop_nav_category);
-	printf("<a href=\"/cart/\">Panier (%d)</a>\n", website_get_cart_count());
+	printf("<a href=\"/cart/\">Panier");
+	if (cart_count > 0)
+		printf(" <span id=\"cart-count\">%d</span>", cart_count);
+	printf("</a>\n");
 	printf("</nav>\n");
-
 	printf("<main>\n");
 }
 
@@ -252,7 +255,7 @@ static void
 page_cart_add(char **matches)
 {
 	struct httpd_var_list *cookies = httpd_parse_cookies();
-	char *val, new[1024];
+	char *val, new[1024], *env;
 
 	if ((val = httpd_get_var(cookies, "item")) == NULL) {
 		httpd_set_var(&httpd_cookies, "item", matches[0]);
@@ -260,7 +263,10 @@ page_cart_add(char **matches)
 		snprintf(new, sizeof new, "%s %s", val, matches[0]);
 		httpd_set_var(&httpd_cookies, "item", new);
 	}
-	httpd_redirect(303, "/cart/");
+	if ((env = getenv("HTTP_REFERER")) == NULL)
+		httpd_redirect(303, "/cart/");
+	else
+		httpd_redirect(303, env);
 }
 
 static void
