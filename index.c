@@ -358,11 +358,11 @@ admin_loop_item(char *path)
 	httpd_read_var_list(&vars, path);
 	item_file = httpd_get_var(&vars, "file");
 	httpd_set_var(&vars, "category.file", category_file);
-	printf("<p>\n");
+	printf("<article class=\"admin\">\n");
 	httpd_template("html/admin-item-edit.html", &vars);
 	loop(&vars, "image", admin_loop_image);
 	httpd_template("html/admin-image-add.html", &vars);
-	printf("</p>\n");
+	printf("</article>\n");
 	return 0;
 }
 

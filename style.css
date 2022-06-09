@@ -2,6 +2,7 @@ body {
 	font-family: sans-serif;
 	margin: 0;
 	padding: 0;
+	margin-bottom: 100px;
 }
 
 a {
@@ -58,9 +59,11 @@ nav a:last-child {
 
 #itemlist {
 	column-count: 3;
+	column-fill: balance;
 }
 
 #itemlist article {
+	display: inline-block;
 	border: solid 1px #508;
 	width: calc(100% - 10px - 10px);
 	padding: 10px;
@@ -111,6 +114,12 @@ nav a:last-child {
 
 #gallery > article > input:checked + img {
 	opacity: 1;
+}
+
+article.admin {
+	border: solid 1px;
+	padding: 10px;
+	margin: 20px 0;
 }
 
 form input[type=submit] {
