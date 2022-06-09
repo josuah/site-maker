@@ -56,11 +56,69 @@ nav a:last-child {
 	padding: 1px 4px;
 }
 
+#itemlist {
+	column-count: 3;
+}
+
+#itemlist article {
+	border: solid 1px #508;
+	width: calc(100% - 10px - 10px);
+	padding: 10px;
+	margin-bottom: 20px;
+}
+
+#itemlist img {
+	position: relative;
+	width: 100%;
+}
+
+#itemlist p {
+	margin: 0;
+	text-align: center;
+}
+
+#addcart {
+	display: inline-block;
+	overflow: auto;
+	float: right;
+}
+
+#gallery {
+	position: relative;
+	padding-left: calc(100% - 100px - 10px);
+}
+
+#gallery > article > img {
+	position: absolute;
+	top: 0;
+	left: 0;
+	opacity: 0;
+	width: calc(100% - 100px - 10px);
+}
+
+#gallery > article > label {
+	display: block;
+	margin-left: 10px;
+}
+
+#gallery > article > label > img {
+	width: 100px;
+}
+
+#gallery > article > input {
+	display: none;
+}
+
+#gallery > article > input:checked + img {
+	opacity: 1;
+}
+
 form input[type=submit] {
 	float: right;
 }
 
-form input[type=input] {
+form input[type=input],
+form textarea {
 	width: calc(100% - 100px);
 }
 

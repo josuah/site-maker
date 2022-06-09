@@ -1,7 +1,8 @@
-<p>
- <form method="POST">
-  <input type="input" name="item.name" value="{{item.name}}"/>
-  <input type="submit" value="💾" formaction="/admin/item/edit/{{file}}/"/>
-  <input type="submit" value="❌" formaction="/admin/item/del/{{category.file}}/{{file}}/"/>
- </form>
-</p>
+
+<form method="POST">
+	<input type="input" name="item.name" value="{{item.name}}"/>
+	<textarea name="text">{{text}}</textarea>
+	<input type="hidden" name="image" value="{{image}}"/>
+	<input type="submit" value="💾" formaction="/admin/item/edit/{{file}}/"/>
+	<input type="submit" value="❌" formaction="/admin/item/del/{{category.file}}/{{file}}/"/>
+</form>

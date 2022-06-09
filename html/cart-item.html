@@ -1,4 +1,7 @@
-<form method="POST">
- <label>{{item.name}}</label>
- <input type="submit" value="❌" formaction="/cart/del/{{file}}/"/>
-</form>
+
+<p>
+	<form method="POST">
+		<label><a href="/item/{{file}}/">{{item.name}}</a></label>
+		<input type="submit" value="❌" formaction="/cart/del/{{file}}/"/>
+	</form>
+</p>

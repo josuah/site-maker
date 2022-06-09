@@ -12,24 +12,33 @@
 
 struct httpd_var_list website;
 
-static void
-loop(struct httpd_var_list *vars, char *key, void (*fn)(struct httpd_var_list *vars))
+static size_t
+loop(struct httpd_var_list *vars, char *key, int (*fn)(char *path))
 {
 	char *val, list[1024];
+	size_t n = 0;
 
 	if ((val = httpd_get_var(vars, key)) == NULL)
 		httpd_fatal("looping over $%s: no such variable", key);
 	strlcpy(list, val, sizeof list);
 	for (char *s = list, *ref = list; (s = strsep(&ref, " ")) != NULL;) {
-		struct httpd_var_list elem = {0};
 		char path[64];
 
 		if (*s == '\0')
 			continue;
 		snprintf(path, sizeof path, "db/%s/%s", key, s);
-		httpd_read_var_list(&elem, path);
-		fn(&elem);
+		if (fn(path) != 0)
+			break;
+		n++;
 	}
+	return n;
+}
+
+static int
+loop_void(char *path)
+{
+	(void)path;
+	return 0;
 }
 
 static ino_t
@@ -93,31 +102,38 @@ del_id(char *parent, char *child, char *id)
 	httpd_write_var_list(&vars, path);
 }
 
+static uint32_t
+payload_assign_id(char *tmp, char *table)
+{
+	char path[64];
+	uint32_t id;
+
+	id = get_inode(tmp);
+	snprintf(path, sizeof path, "db/%s/%d", table, id);
+	if (rename(tmp, path) == -1)
+		httpd_fatal("rename %s to %s: %s", tmp, path, strerror(errno));
+	return id;
+}
+
 static void
 payload_as_child(char *parent, char *child)
 {
 	struct httpd_var_list *payload = httpd_parse_payload();
-	char tmp[64], path[64];
-	uint32_t id;
+	char tmp[64];
 
 	snprintf(tmp, sizeof tmp, "tmp/%d", getpid());
 	httpd_write_var_list(payload, tmp);
-	id = get_inode(tmp);
-
-	snprintf(path, sizeof path, "db/%s/%d", child, id);
-	if (rename(tmp, path) == -1)
-		httpd_fatal("rename %s to %s: %s", tmp, path, strerror(errno));
-
-	add_id(parent, child, id);
+	add_id(parent, child, payload_assign_id(tmp, child));
 }
 
-static size_t cart_count;
-
 static void
-website_loop_cart(struct httpd_var_list *item)
+payload_as_file(char *parent, char *child)
 {
-	(void)item;
-	cart_count++;
+	char tmp[64];
+
+	snprintf(tmp, sizeof tmp, "tmp/%d", getpid());
+	httpd_receive_file(tmp);
+	add_id(parent, child, payload_assign_id(tmp, child));
 }
 
 static int
@@ -125,15 +141,19 @@ website_get_cart_count(void)
 {
 	struct httpd_var_list *cookies = httpd_parse_cookies();
 
-	cart_count = 0;
-	loop(cookies, "item", website_loop_cart);
-	return cart_count;
+	if (httpd_get_var(cookies, "item") != NULL)
+		return loop(cookies, "item", loop_void);
+	return 0;
 }
 
-static void
-website_loop_nav_category(struct httpd_var_list *vars)
+static int
+website_loop_nav_category(char *path)
 {
-	httpd_template("html/website-nav-category.html", vars);
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	httpd_template("html/website-nav-category.html", &vars);
+	return 0;
 }
 
 static void
@@ -175,10 +195,39 @@ error_404(char **matches)
 	website_foot();
 }
 
-static void
-home_loop_category(struct httpd_var_list *category)
+static int
+home_loop_image(char *path)
 {
-	httpd_template("html/home-category.html", category);
+	struct httpd_var_list vars = {0};
+
+	assert(strchr(path, '/'));
+	httpd_set_var(&vars, "file", strrchr(path, '/') + 1);
+	httpd_template("html/home-image.html", &vars);
+	return -1;
+}
+
+static int
+home_loop_item(char *path)
+{
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	httpd_template("html/home-item-head.html", &vars);
+	loop(&vars, "image", home_loop_image);
+	httpd_template("html/home-item-foot.html", &vars);
+	return 0;
+}
+
+static int
+home_loop_category(char *path)
+{
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	httpd_template("html/home-category-head.html", &vars);
+	loop(&vars, "item", home_loop_item);
+	httpd_template("html/home-category-foot.html", &vars);
+	return 0;
 }
 
 static void
@@ -187,48 +236,50 @@ page_home(char **matches)
 	(void)matches;
 
 	website_head("Accueil");
-	httpd_template("html/home.html", &website);
 	loop(&website, "category", home_loop_category);
 	website_foot();
 }
 
-static void
-category_loop_item(struct httpd_var_list *item)
-{
-	httpd_template("html/category-item.html", item);
-}
+static int item_image_checked;
 
-static void
-page_category(char **matches)
+static int
+item_loop_image(char *path)
 {
-	struct httpd_var_list category = {0};
-	char path[64];
+	struct httpd_var_list vars = {0};
 
-	snprintf(path, sizeof path, "db/category/%s", matches[0]);
-	httpd_read_var_list(&category, path);
-	website_head("Accueil");
-	httpd_template("html/category.html", &category);
-	loop(&category, "item", category_loop_item);
-	website_foot();
+	if (item_image_checked)
+		httpd_set_var(&vars, "checked", "checked");
+	assert(strchr(path, '/'));
+	httpd_set_var(&vars, "file", strrchr(path, '/') + 1);
+	httpd_template("html/item-image.html", &vars);
+	item_image_checked = 0;
+	return 0;
 }
 
 static void
 page_item(char **matches)
 {
-	struct httpd_var_list item = {0};
+	struct httpd_var_list vars = {0};
 	char path[64];
 
 	snprintf(path, sizeof path, "db/item/%s", matches[0]);
-	httpd_read_var_list(&item, path);
+	httpd_read_var_list(&vars, path);
 	website_head("Accueil");
-	httpd_template("html/item.html", &item);
+	httpd_template("html/item-head.html", &vars);
+	item_image_checked = 1;
+	loop(&vars, "image", item_loop_image);
+	httpd_template("html/item-foot.html", &vars);
 	website_foot();
 }
 
-static void
-cart_loop_item(struct httpd_var_list *item)
+static int
+cart_loop_item(char *path)
 {
-	httpd_template("html/cart-item.html", item);
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	httpd_template("html/cart-item.html", &vars);
+	return 0;
 }
 
 static void
@@ -283,22 +334,49 @@ page_cart_del(char **matches)
 	httpd_redirect(303, "/cart/");
 }
 
-static char *category_file;
+static char *item_file;
 
-static void
-admin_loop_item(struct httpd_var_list *item)
+static int
+admin_loop_image(char *path)
 {
-	httpd_set_var(item, "category.file", category_file);
-	httpd_template("html/admin-item-edit.html", item);
+	struct httpd_var_list vars = {0};
+
+	assert(strchr(path, '/'));
+	httpd_set_var(&vars, "item.file", item_file);
+	httpd_set_var(&vars, "file", strrchr(path, '/') + 1);
+	httpd_template("html/admin-image-edit.html", &vars);
+	return 0;
 }
 
-static void
-admin_loop_category(struct httpd_var_list *category)
+static char *category_file;
+
+static int
+admin_loop_item(char *path)
 {
-	httpd_template("html/admin-category-edit.html", category);
-	category_file = httpd_get_var(category, "file");
-	loop(category, "item", admin_loop_item);
-	httpd_template("html/admin-item-add.html", category);
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	item_file = httpd_get_var(&vars, "file");
+	httpd_set_var(&vars, "category.file", category_file);
+	printf("<p>\n");
+	httpd_template("html/admin-item-edit.html", &vars);
+	loop(&vars, "image", admin_loop_image);
+	httpd_template("html/admin-image-add.html", &vars);
+	printf("</p>\n");
+	return 0;
+}
+
+static int
+admin_loop_category(char *path)
+{
+	struct httpd_var_list vars = {0};
+
+	httpd_read_var_list(&vars, path);
+	category_file = httpd_get_var(&vars, "file");
+	httpd_template("html/admin-category-edit.html", &vars);
+	loop(&vars, "item", admin_loop_item);
+	httpd_template("html/admin-item-add.html", &vars);
+	return 0;
 }
 
 static void
@@ -311,6 +389,33 @@ page_admin(char **matches)
 	loop(&website, "category", admin_loop_category);
 	httpd_template("html/admin-category-add.html", &category);
 	website_foot();
+}
+
+static void
+page_admin_category_add(char **matches)
+{
+	(void)matches;
+
+	payload_as_child("website", "category");
+	httpd_redirect(303, "/admin/");
+}
+
+static void
+page_admin_category_edit(char **matches)
+{
+	struct httpd_var_list *payload = httpd_parse_payload();
+	char path[64];
+
+	snprintf(path, sizeof path, "db/category/%s", matches[0]);
+	httpd_write_var_list(payload, path);
+	httpd_redirect(303, "/admin/");
+}
+
+static void
+page_admin_category_del(char **matches)
+{
+	del_id("website", "category", matches[0]);
+	httpd_redirect(303, "/admin/");
 }
 
 static void
@@ -345,46 +450,41 @@ page_admin_item_del(char **matches)
 }
 
 static void
-page_admin_category_add(char **matches)
+page_admin_image_add(char **matches)
 {
-	(void)matches;
+	char parent[64];
 
-	payload_as_child("website", "category");
+	snprintf(parent, sizeof parent, "item/%s", matches[0]);
+	payload_as_file(parent, "image");
 	httpd_redirect(303, "/admin/");
 }
 
 static void
-page_admin_category_edit(char **matches)
+page_admin_image_del(char **matches)
 {
-	struct httpd_var_list *payload = httpd_parse_payload();
-	char path[64];
+	char parent[64];
 
-	snprintf(path, sizeof path, "db/category/%s", matches[0]);
-
-	httpd_write_var_list(payload, path);
+	snprintf(parent, sizeof parent, "item/%s", matches[0]);
+	del_id(parent, "image", matches[1]);
 	httpd_redirect(303, "/admin/");
 }
 
-static void
-page_admin_category_del(char **matches)
-{
-	del_id("website", "category", matches[0]);
-	httpd_redirect(303, "/admin/");
-}
 
 static struct httpd_handler handlers[] = {
 	{ HTTPD_GET,	"/",				page_home },
-	{ HTTPD_GET,	"/category/*/",			page_category },
 	{ HTTPD_GET,	"/item/*/",			page_item },
 	{ HTTPD_GET,	"/cart/",			page_cart },
 	{ HTTPD_POST,	"/cart/add/*/",			page_cart_add },
 	{ HTTPD_POST,	"/cart/del/*/",			page_cart_del },
 	{ HTTPD_GET,	"/admin/",			page_admin },
 	{ HTTPD_POST,	"/admin/category/add/",		page_admin_category_add },
+	{ HTTPD_POST,	"/admin/category/edit/*/",	page_admin_category_edit },
 	{ HTTPD_POST,	"/admin/category/del/*/",	page_admin_category_del },
 	{ HTTPD_POST,	"/admin/item/add/*/",		page_admin_item_add },
 	{ HTTPD_POST,	"/admin/item/edit/*/",		page_admin_item_edit },
 	{ HTTPD_POST,	"/admin/item/del/*/*/",		page_admin_item_del },
+	{ HTTPD_POST,	"/admin/image/add/*/",		page_admin_image_add },
+	{ HTTPD_POST,	"/admin/image/del/*/*/",	page_admin_image_del },
 	{ HTTPD_ANY,	"*",				error_404 },
 	{ HTTPD_ANY,	NULL,				NULL },
 };

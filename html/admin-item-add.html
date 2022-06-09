@@ -1,6 +1,8 @@
+
 <p>
- <form method="POST">
-  <input type="input" name="item.name"/>
-  <input type="submit" value="➕" formaction="/admin/item/add/{{file}}/"/>
- </form>
+	<form method="POST">
+		<input type="input" name="item.name"/>
+		<input type="hidden" name="image"/>
+		<input type="submit" value="➕" formaction="/admin/item/add/{{file}}/"/>
+	</form>
 </p>
