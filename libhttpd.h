@@ -9,7 +9,8 @@ enum {
 	HTTPD_PUT	= 1 << 2,
 	HTTPD_PATCH	= 1 << 3,
 	HTTPD_DELETE	= 1 << 4,
-	HTTPD_CUSTOM	= 1 << 5,
+	HTTPD_HEAD	= 1 << 5,
+	HTTPD_CUSTOM	= 1 << 6,
 	HTTPD_ANY	= 0xFF,
 };
 
@@ -38,12 +39,6 @@ static void httpd_fatal(char *fmt, ...);
 /* receive a file payload from the client onto the disk at `path` */
 static void httpd_receive_file(char const *path);
 
-/* receive and parse the url-encoded HTTP payload instead of a file */
-static void httpd_receive_payload(void);
-
-/* set the response header `key` to be `val` */
-static void httpd_set_header(char *key, char *val);
-
 /* send the HTTP and CGI headers to the client, with Content-Type set to `type` */
 static void httpd_send_headers(int code, char const *type);
 
@@ -61,20 +56,26 @@ static void httpd_add_var(struct httpd_var_list *vars, char *key, char *val);
 static void httpd_sort_var_list(struct httpd_var_list *vars);
 static void httpd_set_var(struct httpd_var_list *vars, char *key, char *val);
 static char *httpd_get_var(struct httpd_var_list *vars, char *key);
+static void httpd_free_var_list(struct httpd_var_list *vars);
+
+/* store and read a list of variables onto a simple RFC822-like format */
 static void httpd_read_var_list(struct httpd_var_list *vars, char *path);
 static int httpd_write_var_list(struct httpd_var_list *vars, char *path);
-static void httpd_free_var_list(struct httpd_var_list *vars);
+
+/* parse various components of the HTTP request */
+static void httpd_parse_payload(struct httpd_var_list *vars);
+static void httpd_parse_cookies(struct httpd_var_list *vars);
+static void httpd_parse_query_string(struct httpd_var_list *vars);
+
+/* sent to the client by httpd_send_headers */
+static struct httpd_var_list httpd_headers;
+static struct httpd_var_list httpd_cookies;
 
 
 /// POLICE LINE /// DO NOT CROSS ///
 
 
 #define HTTPD_MATCH_NUM 5
-
-static struct httpd_var_list httpd_headers;
-static struct httpd_var_list httpd_payload;
-static struct httpd_var_list httpd_query_string;
-static struct httpd_var_list httpd_cookies;
 
 static void
 httpd_fatal(char *fmt, ...)
@@ -84,9 +85,8 @@ httpd_fatal(char *fmt, ...)
 
 	va_start(va, fmt);
 	vsnprintf(msg, sizeof msg, fmt, va);
-	va_end(va);
-	fprintf(stdout, "Status: 500 Server Error\n\n");
-	fprintf(stdout, "error: %s\n", msg);
+	printf("Status: 500 Server Error\n\n");
+	printf("error: %s\n", msg);
 	exit(1);
 }
 
@@ -186,8 +186,8 @@ httpd_read_var_list(struct httpd_var_list *vars, char *path)
 			httpd_fatal("%s: missing ': ' separator", path);
 		httpd_add_var(vars, key, line);
 	}
-	httpd_add_var(vars, "Text", tail ? tail : "");
-	httpd_add_var(vars, "File", (s = strrchr(path, '/')) ? s + 1 : path);
+	httpd_set_var(vars, "text", tail ? tail : "");
+	httpd_set_var(vars, "file", (s = strrchr(path, '/')) ? s + 1 : path);
 	httpd_sort_var_list(vars);
 }
 
@@ -281,23 +281,6 @@ httpd_decode_url(struct httpd_var_list *vars, char *s)
 	httpd_sort_var_list(vars);
 }
 
-static inline void
-httpd_receive_payload(void)
-{
-	size_t len;
-	char *buf;
-
-	len = atoi(httpd_get_env("CONTENT_LENGTH"));
-	if ((buf = calloc(len + 1, 1)) == NULL)
-		httpd_fatal("calloc");
-	fread(buf, len, 1, stdin);
-	if (ferror(stdin) || feof(stdin))
-		httpd_fatal("reading POST data");
-	if (strcasecmp(httpd_get_env("CONTENT_TYPE"), "application/x-www-form-urlencoded") != 0)
-		httpd_fatal("expecting application/x-httpdw-form-urlencoded");
-	httpd_decode_url(&httpd_payload, buf);
-}
-
 static void
 httpd_receive_file(char const *path)
 {
@@ -312,7 +295,7 @@ httpd_receive_file(char const *path)
 	env = httpd_get_env("CONTENT_TYPE");
 	s = "multipart/form-data; boundary=";
 	if (strncasecmp(env, s, strlen(s)) != 0)
-		httpd_fatal("expecting \"%s\"", s);
+		httpd_fatal("expecting '%s'", s);
 	bound = env + strlen(s);
 
 	if ((fp = fopen(path, "wx")) == NULL)
@@ -351,32 +334,18 @@ httpd_receive_file(char const *path)
 }
 
 static void
-httpd_set_header(char *key, char *val)
-{
-	httpd_set_var(&httpd_headers, key, val);
-	httpd_sort_var_list(&httpd_headers);
-}
-
-static void
-httpd_add_header(char *key, char *val)
-{
-	httpd_add_var(&httpd_headers, key, val);
-	httpd_sort_var_list(&httpd_headers);
-}
-
-static void
 httpd_send_headers(int code, char const *type)
 {
 	struct httpd_var *v;
 	size_t n;
 
-	fprintf(stdout, "Status: %i\n", code);
-	fprintf(stdout, "Content-Type: %s\n", type);
+	printf("Status: %i\n", code);
+	printf("Content-Type: %s\n", type);
 	for (v = httpd_headers.list, n = httpd_headers.len; n > 0; n--, v++)
 		if (strcasecmp(v->key, "text") != 0)
-			fprintf(stdout, "%s: %s\n", v->key, v->val);
+			printf("%s: %s\n", v->key, v->val);
 	for (v = httpd_cookies.list, n = httpd_cookies.len; n > 0; n--, v++)
-		fprintf(stdout, "Set-Cookie: %s=%s\n", v->key, v->val);
+		printf("Set-Cookie: %s=%s\n", v->key, v->val);
 	fputc('\n', stdout);
 }
 
@@ -388,10 +357,9 @@ httpd_redirect(int code, char *fmt, ...)
 
 	va_start(va, fmt);
 	vsnprintf(url, sizeof url, fmt, va);
-	va_end(va);
-	fprintf(stdout, "Location: %s\n", url);
+	printf("Location: %s\n", url);
 	httpd_send_headers(code, "text/plain");
-	fprintf(stdout, "Redirecting to %s\n", url);
+	printf("Redirecting to %s\n", url);
 }
 
 static inline int
@@ -403,17 +371,17 @@ httpd_match(char const *glob, char *path, char **matches, size_t m)
 	while (*glob != '*' && *path != '\0' && *glob == *path)
 		glob++, path++;
 	if (glob[0] == '*') {
-		if (*glob != '\0' && httpd_match(glob + 1, path, matches, m + 1) >= 0) {
+		if (*glob != '\0' && httpd_match(glob + 1, path, matches, m + 1)) {
 			if (matches[m] == NULL)
 				matches[m] = path;
 			*path = '\0';
-			return m;
-		} else if (*path != '\0' && httpd_match(glob, path + 1, matches, m) >= 0) {
+			return 1;
+		} else if (*path != '\0' && httpd_match(glob, path + 1, matches, m)) {
 			matches[m] = (char *)path;
-			return m;
+			return 1;
 		}
 	}
-	return (*glob == '\0' && *path == '\0') ? m : -1;
+	return *glob == '\0' && *path == '\0';
 }
 
 static inline int
@@ -429,6 +397,7 @@ httpd_parse_method(void)
 		{ "PUT",	HTTPD_PUT },
 		{ "PATCH",	HTTPD_PATCH },
 		{ "DELETE",	HTTPD_DELETE },
+		{ "HEAD",	HTTPD_HEAD },
 		{ NULL,		HTTPD_CUSTOM }
 	}, *m;
 
@@ -437,8 +406,25 @@ httpd_parse_method(void)
 	return m->val;
 }
 
-static inline void
-httpd_parse_cookies(void)
+static void
+httpd_parse_payload(struct httpd_var_list *vars)
+{
+	size_t len;
+	char *buf;
+
+	len = atoi(httpd_get_env("CONTENT_LENGTH"));
+	if ((buf = calloc(len + 1, 1)) == NULL)
+		httpd_fatal("calloc");
+	fread(buf, len, 1, stdin);
+	if (ferror(stdin) || feof(stdin))
+		httpd_fatal("reading POST data");
+	if (strcasecmp(httpd_get_env("CONTENT_TYPE"), "application/x-www-form-urlencoded") != 0)
+		httpd_fatal("expecting application/x-www-form-urlencoded");
+	httpd_decode_url(vars, buf);
+}
+
+static void
+httpd_parse_cookies(struct httpd_var_list *vars)
 {
 	char *env;
 
@@ -446,15 +432,15 @@ httpd_parse_cookies(void)
 		return;
 	for (char *val; (val = strsep(&env, ";"));) {
 		val += (*val == ' ');
-		httpd_add_var(&httpd_cookies, strsep(&val, "="), val);
+		httpd_add_var(vars, strsep(&val, "="), val);
 	}
-	httpd_sort_var_list(&httpd_cookies);
+	httpd_sort_var_list(vars);
 }
 
-static inline void
-httpd_parse_query_string(void)
+static void
+httpd_parse_query_string(struct httpd_var_list *vars)
 {
-	httpd_decode_url(&httpd_query_string, httpd_get_env("QUERY_STRING"));
+	httpd_decode_url(vars, httpd_get_env("QUERY_STRING"));
 }
 
 static void
@@ -466,8 +452,6 @@ httpd_handle_request(struct httpd_handler h[])
 
 	path = httpd_get_env("PATH_INFO");
 	method = httpd_parse_method();
-	httpd_parse_cookies();
-	httpd_parse_query_string();
 
 	len = strlen(path);
 	if (len == 0 || path[len - 1] != '/') {
@@ -479,7 +463,7 @@ httpd_handle_request(struct httpd_handler h[])
 		char *matches[HTTPD_MATCH_NUM + 1];
 		if (!(h->method & method))
 			continue;
-		if (httpd_match(h->glob, path, matches, 0) != 0)
+		if (!httpd_match(h->glob, path, matches, 0))
 			continue;
 		h->fn(matches);
 		return;

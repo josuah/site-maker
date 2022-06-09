@@ -10,7 +10,7 @@ a {
 }
 
 body > * {
-	padding: 0 calc(50% - 500px);
+	padding: 10px calc(max(50% - 500px, 50px));
 	line-height: 1.4em;
 }
 
@@ -21,6 +21,7 @@ header p {
 header {
 	color: #FFF;
 	background-color: #000;
+	overflow: auto;
 }
 
 header img {
@@ -38,7 +39,19 @@ nav a {
 	padding: 0 10px;
 }
 
+form input[type=submit] {
+	float: right;
+}
+
+form input[type=input] {
+	width: calc(100% - 100px);
+}
+
 nav a:hover {
 	background-color: #508;
 	color: #FFF;
+}
+
+h2 {
+	border-bottom: solid 2px;
 }
