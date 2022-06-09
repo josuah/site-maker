@@ -96,13 +96,12 @@ del_id(char *parent, char *child, char *id)
 static void
 payload_as_child(char *parent, char *child)
 {
-	struct httpd_var_list vars = {0};
+	struct httpd_var_list *payload = httpd_parse_payload();
 	char tmp[64], path[64];
 	uint32_t id;
 
 	snprintf(tmp, sizeof tmp, "tmp/%d", getpid());
-	httpd_parse_payload(&vars);
-	httpd_write_var_list(&vars, tmp);
+	httpd_write_var_list(payload, tmp);
 	id = get_inode(tmp);
 
 	snprintf(path, sizeof path, "db/%s/%d", child, id);
@@ -110,6 +109,25 @@ payload_as_child(char *parent, char *child)
 		httpd_fatal("rename %s to %s: %s", tmp, path, strerror(errno));
 
 	add_id(parent, child, id);
+}
+
+static size_t cart_count;
+
+static void
+website_loop_cart(struct httpd_var_list *item)
+{
+	(void)item;
+	cart_count++;
+}
+
+static int
+website_get_cart_count(void)
+{
+	struct httpd_var_list *cookies = httpd_parse_cookies();
+
+	cart_count = 0;
+	loop(cookies, "item", website_loop_cart);
+	return cart_count;
 }
 
 static void
@@ -129,7 +147,7 @@ website_head(char *page_name)
 
 	printf("<nav>\n");
 	loop(&website, "category", website_loop_nav_category);
-	printf("<a href=\"/cart/\">Panier</a>\n");
+	printf("<a href=\"/cart/\">Panier (%d)</a>\n", website_get_cart_count());
 	printf("</nav>\n");
 
 	printf("<main>\n");
@@ -213,17 +231,17 @@ cart_loop_item(struct httpd_var_list *item)
 static void
 page_cart(char **matches)
 {
-	struct httpd_var_list cookies = {0};
+	struct httpd_var_list *cookies = httpd_parse_cookies();
+	char *val;
 	(void)matches;
 
 	website_head("Accueil");
 
-	httpd_parse_cookies(&cookies);
 
-	if (httpd_get_var(&cookies, "item") == NULL) {
+	if ((val = httpd_get_var(cookies, "item")) == NULL || *val == '\0') {
 		httpd_template("html/cart-empty.html", &website);
 	} else {
-		loop(&cookies, "item", cart_loop_item);
+		loop(cookies, "item", cart_loop_item);
 		httpd_template("html/cart-checkout.html", &website);
 	}
 
@@ -233,11 +251,10 @@ page_cart(char **matches)
 static void
 page_cart_add(char **matches)
 {
-	struct httpd_var_list cookies = {0};
+	struct httpd_var_list *cookies = httpd_parse_cookies();
 	char *val, new[1024];
 
-	httpd_parse_cookies(&cookies);
-	if ((val = httpd_get_var(&cookies, "item")) == NULL) {
+	if ((val = httpd_get_var(cookies, "item")) == NULL) {
 		httpd_set_var(&httpd_cookies, "item", matches[0]);
 	} else {
 		snprintf(new, sizeof new, "%s %s", val, matches[0]);
@@ -249,11 +266,11 @@ page_cart_add(char **matches)
 static void
 page_cart_del(char **matches)
 {
-	struct httpd_var_list cookies = {0};
+	struct httpd_var_list *cookies = httpd_parse_cookies();
 	char new[1024], *val;
 
-	httpd_parse_cookies(&cookies);
-	if ((val = httpd_get_var(&cookies, "item")) == NULL)
+
+	if ((val = httpd_get_var(cookies, "item")) == NULL)
 		httpd_fatal("no $item cookie");
 	del_string(new, sizeof new, val, matches[0]);
 	httpd_set_var(&httpd_cookies, "item", new);
@@ -303,12 +320,11 @@ page_admin_item_add(char **matches)
 static void
 page_admin_item_edit(char **matches)
 {
-	struct httpd_var_list vars = {0};
+	struct httpd_var_list *payload = httpd_parse_payload();
 	char path[64];
 
 	snprintf(path, sizeof path, "db/item/%s", matches[0]);
-	httpd_parse_payload(&vars);
-	httpd_write_var_list(&vars, path);
+	httpd_write_var_list(payload, path);
 	httpd_redirect(303, "/admin/");
 }
 
@@ -334,12 +350,12 @@ page_admin_category_add(char **matches)
 static void
 page_admin_category_edit(char **matches)
 {
-	struct httpd_var_list vars = {0};
+	struct httpd_var_list *payload = httpd_parse_payload();
 	char path[64];
 
 	snprintf(path, sizeof path, "db/category/%s", matches[0]);
-	httpd_parse_payload(&vars);
-	httpd_write_var_list(&vars, path);
+
+	httpd_write_var_list(payload, path);
 	httpd_redirect(303, "/admin/");
 }
 

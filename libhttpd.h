@@ -63,9 +63,9 @@ static void httpd_read_var_list(struct httpd_var_list *vars, char *path);
 static int httpd_write_var_list(struct httpd_var_list *vars, char *path);
 
 /* parse various components of the HTTP request */
-static void httpd_parse_payload(struct httpd_var_list *vars);
-static void httpd_parse_cookies(struct httpd_var_list *vars);
-static void httpd_parse_query_string(struct httpd_var_list *vars);
+static struct httpd_var_list * httpd_parse_payload(void);
+static struct httpd_var_list * httpd_parse_cookies(void);
+static struct httpd_var_list * httpd_parse_query_string(void);
 
 /* sent to the client by httpd_send_headers */
 static struct httpd_var_list httpd_headers;
@@ -194,7 +194,8 @@ httpd_read_var_list(struct httpd_var_list *vars, char *path)
 static void
 httpd_free_var_list(struct httpd_var_list *vars)
 {
-	free(vars->buf);
+	if (vars->buf != NULL)
+		free(vars->buf);
 	free(vars->list);
 }
 
@@ -406,11 +407,15 @@ httpd_parse_method(void)
 	return m->val;
 }
 
-static void
-httpd_parse_payload(struct httpd_var_list *vars)
+static struct httpd_var_list *
+httpd_parse_payload(void)
 {
+	static struct httpd_var_list vars = {0};
 	size_t len;
 	char *buf;
+
+	if (vars.len > 0)
+		return &vars;
 
 	len = atoi(httpd_get_env("CONTENT_LENGTH"));
 	if ((buf = calloc(len + 1, 1)) == NULL)
@@ -420,27 +425,43 @@ httpd_parse_payload(struct httpd_var_list *vars)
 		httpd_fatal("reading POST data");
 	if (strcasecmp(httpd_get_env("CONTENT_TYPE"), "application/x-www-form-urlencoded") != 0)
 		httpd_fatal("expecting application/x-www-form-urlencoded");
-	httpd_decode_url(vars, buf);
+	httpd_decode_url(&vars, buf);
+	vars.buf = buf;
+
+	return &vars;
 }
 
-static void
-httpd_parse_cookies(struct httpd_var_list *vars)
+static struct httpd_var_list *
+httpd_parse_cookies(void)
 {
+	static struct httpd_var_list vars = {0};
 	char *env;
 
+	if (vars.len > 0)
+		return &vars;
+
 	if ((env = getenv("HTTP_COOKIE")) == NULL)
-		return;
+		return &vars;
 	for (char *val; (val = strsep(&env, ";"));) {
 		val += (*val == ' ');
-		httpd_add_var(vars, strsep(&val, "="), val);
+		httpd_add_var(&vars, strsep(&val, "="), val);
 	}
-	httpd_sort_var_list(vars);
+	httpd_sort_var_list(&vars);
+
+	return &vars;
 }
 
-static void
-httpd_parse_query_string(struct httpd_var_list *vars)
+static struct httpd_var_list *
+httpd_parse_query_string(void)
 {
-	httpd_decode_url(vars, httpd_get_env("QUERY_STRING"));
+	static struct httpd_var_list vars = {0};
+
+	if (vars.len > 0)
+		return &vars;
+
+	httpd_decode_url(&vars, httpd_get_env("QUERY_STRING"));
+
+	return &vars;
 }
 
 static void
