@@ -345,7 +345,7 @@ httpd_send_headers(int code, char const *type)
 		if (strcasecmp(v->key, "text") != 0)
 			printf("%s: %s\n", v->key, v->val);
 	for (v = httpd_cookies.list, n = httpd_cookies.len; n > 0; n--, v++)
-		printf("Set-Cookie: %s=%s\n", v->key, v->val);
+		printf("Set-Cookie: %s=%s; Path=/\n", v->key, v->val);
 	fputc('\n', stdout);
 }
 

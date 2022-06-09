@@ -53,34 +53,42 @@ add_id(char *parent, char *child, uint32_t id)
 	if ((val = httpd_get_var(&vars, child)) == 0)
 		httpd_fatal("adding id %d to %s: no $%s", parent, id, child);
 
-	snprintf(new, sizeof new, "%s %d", val, id);
+	snprintf(new, sizeof new, (*val == '\0') ? "%s%d" : "%s %d", val, id);
 	httpd_set_var(&vars, child, new);
 	httpd_write_var_list(&vars, path);
 	httpd_free_var_list(&vars);
 }
 
 static void
+del_string(char *new, size_t sz, char *old, char *id)
+{
+	char *cp;
+	size_t len = strlen(id);
+
+	for (cp = old; (cp = strstr(cp, id));)
+		if (cp[len] == ' ' || cp[len] == '\0')
+			goto found;
+	httpd_fatal("could not find '%s' to delete in '%s' in $%s", id, old);
+found:
+	len += (cp[len] == ' ');
+	snprintf(new, sz, "%.*s%s", (int)(cp - old), old, cp + len);
+	len = strlen(new);
+	if (new[len] == ' ')
+		new[len] = '\0';
+}
+
+static void
 del_id(char *parent, char *child, char *id)
 {
 	struct httpd_var_list vars = {0};
-	char path[64], *val, *cp, new[1024];
-	size_t len = strlen(id);
+	char path[64], *val, new[1024];
 
 	snprintf(path, sizeof path, "db/%s", parent);
 	httpd_read_var_list(&vars, path);
 	if ((val = httpd_get_var(&vars, child)) == 0)
 		httpd_fatal("removing id %d from %s: no $%s", parent, id, child);
 
-	for (cp = val; (cp = strstr(cp, id));)
-		if (cp[len] == ' ' || cp[len] == '\0')
-			goto found;
-	httpd_fatal("no %s to delete from %s in $%s", id, parent, child);
-found:
-	len += (cp[len] == ' ');
-	snprintf(new, sizeof new, "%.*s%s", (int)(cp - val), val, cp + len);
-	len = strlen(new);
-	if (new[len] == ' ')
-		new[len] = '\0';
+	del_string(new, sizeof new, val, id);
 	httpd_set_var(&vars, child, new);
 	httpd_write_var_list(&vars, path);
 }
@@ -163,6 +171,95 @@ page_home(char **matches)
 	website_foot();
 }
 
+static void
+category_loop_item(struct httpd_var_list *item)
+{
+	httpd_template("html/category-item.html", item);
+}
+
+static void
+page_category(char **matches)
+{
+	struct httpd_var_list category = {0};
+	char path[64];
+
+	snprintf(path, sizeof path, "db/category/%s", matches[0]);
+	httpd_read_var_list(&category, path);
+	website_head("Accueil");
+	httpd_template("html/category.html", &category);
+	loop(&category, "item", category_loop_item);
+	website_foot();
+}
+
+static void
+page_item(char **matches)
+{
+	struct httpd_var_list item = {0};
+	char path[64];
+
+	snprintf(path, sizeof path, "db/item/%s", matches[0]);
+	httpd_read_var_list(&item, path);
+	website_head("Accueil");
+	httpd_template("html/item.html", &item);
+	website_foot();
+}
+
+static void
+cart_loop_item(struct httpd_var_list *item)
+{
+	httpd_template("html/cart-item.html", item);
+}
+
+static void
+page_cart(char **matches)
+{
+	struct httpd_var_list cookies = {0};
+	(void)matches;
+
+	website_head("Accueil");
+
+	httpd_parse_cookies(&cookies);
+
+	if (httpd_get_var(&cookies, "item") == NULL) {
+		httpd_template("html/cart-empty.html", &website);
+	} else {
+		loop(&cookies, "item", cart_loop_item);
+		httpd_template("html/cart-checkout.html", &website);
+	}
+
+	website_foot();
+}
+
+static void
+page_cart_add(char **matches)
+{
+	struct httpd_var_list cookies = {0};
+	char *val, new[1024];
+
+	httpd_parse_cookies(&cookies);
+	if ((val = httpd_get_var(&cookies, "item")) == NULL) {
+		httpd_set_var(&httpd_cookies, "item", matches[0]);
+	} else {
+		snprintf(new, sizeof new, "%s %s", val, matches[0]);
+		httpd_set_var(&httpd_cookies, "item", new);
+	}
+	httpd_redirect(303, "/cart/");
+}
+
+static void
+page_cart_del(char **matches)
+{
+	struct httpd_var_list cookies = {0};
+	char new[1024], *val;
+
+	httpd_parse_cookies(&cookies);
+	if ((val = httpd_get_var(&cookies, "item")) == NULL)
+		httpd_fatal("no $item cookie");
+	del_string(new, sizeof new, val, matches[0]);
+	httpd_set_var(&httpd_cookies, "item", new);
+	httpd_redirect(303, "/cart/");
+}
+
 static char *category_file;
 
 static void
@@ -196,14 +293,9 @@ page_admin(char **matches)
 static void
 page_admin_item_add(char **matches)
 {
-	struct httpd_var_list query_string = {0};
-	char parent[64], *category;
-	(void)matches;
+	char parent[64];
 
-	httpd_parse_query_string(&query_string);
-	if ((category = httpd_get_var(&query_string, "category")) == NULL)
-		httpd_fatal("missing $category in $QUERY_STRING");
-	snprintf(parent, sizeof parent, "category/%s", category);
+	snprintf(parent, sizeof parent, "category/%s", matches[0]);
 	payload_as_child(parent, "item");
 	httpd_redirect(303, "/admin/");
 }
@@ -213,7 +305,6 @@ page_admin_item_edit(char **matches)
 {
 	struct httpd_var_list vars = {0};
 	char path[64];
-	(void)matches;
 
 	snprintf(path, sizeof path, "db/item/%s", matches[0]);
 	httpd_parse_payload(&vars);
@@ -224,14 +315,10 @@ page_admin_item_edit(char **matches)
 static void
 page_admin_item_del(char **matches)
 {
-	struct httpd_var_list query_string = {0};
-	char parent[64], *category;
+	char parent[64];
 
-	httpd_parse_query_string(&query_string);
-	if ((category = httpd_get_var(&query_string, "category")) == NULL)
-		httpd_fatal("missing $category in $QUERY_STRING");
-	snprintf(parent, sizeof parent, "category/%s", category);
-	del_id(parent, "item", matches[0]);
+	snprintf(parent, sizeof parent, "category/%s", matches[0]);
+	del_id(parent, "item", matches[1]);
 	httpd_redirect(303, "/admin/");
 }
 
@@ -249,7 +336,6 @@ page_admin_category_edit(char **matches)
 {
 	struct httpd_var_list vars = {0};
 	char path[64];
-	(void)matches;
 
 	snprintf(path, sizeof path, "db/category/%s", matches[0]);
 	httpd_parse_payload(&vars);
@@ -266,13 +352,17 @@ page_admin_category_del(char **matches)
 
 static struct httpd_handler handlers[] = {
 	{ HTTPD_GET,	"/",				page_home },
+	{ HTTPD_GET,	"/category/*/",			page_category },
+	{ HTTPD_GET,	"/item/*/",			page_item },
+	{ HTTPD_GET,	"/cart/",			page_cart },
+	{ HTTPD_POST,	"/cart/add/*/",			page_cart_add },
+	{ HTTPD_POST,	"/cart/del/*/",			page_cart_del },
 	{ HTTPD_GET,	"/admin/",			page_admin },
 	{ HTTPD_POST,	"/admin/category/add/",		page_admin_category_add },
-	{ HTTPD_POST,	"/admin/category/edit/*/",	page_admin_category_edit },
 	{ HTTPD_POST,	"/admin/category/del/*/",	page_admin_category_del },
-	{ HTTPD_POST,	"/admin/item/add/",		page_admin_item_add },
+	{ HTTPD_POST,	"/admin/item/add/*/",		page_admin_item_add },
 	{ HTTPD_POST,	"/admin/item/edit/*/",		page_admin_item_edit },
-	{ HTTPD_POST,	"/admin/item/del/*/",		page_admin_item_del },
+	{ HTTPD_POST,	"/admin/item/del/*/*/",		page_admin_item_del },
 	{ HTTPD_ANY,	"*",				error_404 },
 	{ HTTPD_ANY,	NULL,				NULL },
 };
