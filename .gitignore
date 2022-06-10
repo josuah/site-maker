@@ -1,4 +1,3 @@
 *.cgi
 /db
 /tmp
-/go

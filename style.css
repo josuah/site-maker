@@ -6,8 +6,17 @@ body {
 }
 
 a {
-	text-decoration: none;
 	color: inherit;
+}
+
+img {
+	max-width: 100%;
+}
+
+form input[type=input],
+form input[type=number],
+form textarea {
+	width: calc(100% - 120px);
 }
 
 body > * {
@@ -122,18 +131,8 @@ header > aside {
 	opacity: 1;
 }
 
-img {
-	max-width: 100%;
-}
-
 .admin {
 	border: solid 1px #508;
 	padding: 10px;
 	margin: 10px 0;
-}
-
-form input[type=input],
-form input[type=number],
-form textarea {
-	width: calc(100% - 120px);
 }

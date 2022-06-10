@@ -1,4 +1,64 @@
 
-<form method="GET">
-	<input type="submit" value="Payer" class="button right" formaction="https://buy.stripe.com/7sI7wcfw114Bbok3cc"/>
-</form>
+<p>...
+	<span class="right">
+		Sous-total: <span class="price">{{cart.subtotal}}€ TTC</span>
+	</span>
+</p>
+
+<p>...
+	<span class="right">
+		Frais de ports: <span class="price">{{cart.shipping}}€ TTC</span>
+	</span>
+</p>
+
+<p>...
+	<span class="right">
+		Total: <span class="price">{{cart.total}}€ TTC</span>
+	</span>
+</p>
+
+<p>
+	<div id="smart-button-container">
+		<center>
+			<div id="paypal-button-container"></div>
+		</center>
+	</div>
+</p>
+
+<script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory"></script>
+
+<script>
+function initPayPalButton() {
+	paypal.Buttons({
+		style: {shape:'rect',color:'white',layout:'vertical',label:'paypal'},
+
+		createOrder: function(data, actions) {
+			return actions.order.create({
+				purchase_units: [{
+					"description":"{{cart.items}}",
+					"amount":{"currency_code":"EUR","value":{{cart.total}},
+						"breakdown":{
+							"item_total":{"currency_code":"EUR","value":{{cart.subtotal}}.00},
+							"shipping":{"currency_code":"EUR","value":{{cart.shipping}}.00},
+							"tax_total":{"currency_code":"EUR","value":0.00}
+						}
+					}
+				}]
+			});
+		},
+
+		onApprove: function(data, actions) {
+			return actions.order.capture().then(function(orderData) {
+				console.log('Capture result', orderData, JSON.stringify(orderData, null, 2));
+				actions.redirect('https://shop.metairies.org/cart/done/');
+			});
+		},
+
+		onError: function(err) {
+			console.log(err);
+			actions.redirect('https://shop.metairies.org/cart/error/');
+		}
+	}).render('#paypal-button-container');
+}
+initPayPalButton();
+</script>

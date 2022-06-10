@@ -162,7 +162,7 @@ website_head(char *page_name)
 	int cart_count = website_get_cart_count();
 
 	httpd_read_var_list(&website, "db/website");
-	httpd_set_var(&website, "page-name", page_name);
+	httpd_set_var(&website, "page-name", page_name ? page_name : "(null)");
 	httpd_send_headers(200, "text/html");
 
 	httpd_template("html/website-head.html", &website);
@@ -264,7 +264,7 @@ page_item(char **matches)
 
 	snprintf(path, sizeof path, "db/item/%s", matches[0]);
 	httpd_read_var_list(&vars, path);
-	website_head("Accueil");
+	website_head(httpd_get_var(&vars, "item.name"));
 	httpd_template("html/item-head.html", &vars);
 	item_image_checked = 1;
 	loop(&vars, "image", item_loop_image);
@@ -272,13 +272,21 @@ page_item(char **matches)
 	website_foot();
 }
 
+uint32_t cart_subtotal, cart_shipping, cart_total;
+
 static int
 cart_loop_item(char *path)
 {
 	struct httpd_var_list vars = {0};
+	char const *val, *err = NULL;
 
 	httpd_read_var_list(&vars, path);
 	httpd_template("html/cart-item.html", &vars);
+
+	if ((val = httpd_get_var(&vars, "item.price")) == NULL)
+		httpd_fatal("could not get the price for '%s'", path);
+	if ((cart_subtotal += strtonum(val, 0, UINT32_MAX, &err)), err != NULL)
+		httpd_fatal("parsing price for '%s': %s", path, err);
 	return 0;
 }
 
@@ -286,17 +294,37 @@ static void
 page_cart(char **matches)
 {
 	struct httpd_var_list *cookies = httpd_parse_cookies();
-	char *val;
+	struct httpd_var_list vars = {0};
+	char *val, subtotal[32], shipping[32], total[32];
+	char const *err;
 	(void)matches;
 
-	website_head("Accueil");
-
+	website_head("Panier");
 
 	if ((val = httpd_get_var(cookies, "item")) == NULL || *val == '\0') {
 		httpd_template("html/cart-empty.html", &website);
 	} else {
 		loop(cookies, "item", cart_loop_item);
-		httpd_template("html/cart-checkout.html", &website);
+
+		if ((val = httpd_get_var(&website, "cart.shipping")) == NULL)
+			httpd_fatal("no $cart.shipping variable", err);
+		cart_shipping = strtonum(val, 0, UINT32_MAX, &err);
+		if (err != NULL)
+			httpd_fatal("parsing shipping costs: %s", err);
+		cart_total = cart_subtotal + cart_shipping;
+
+		snprintf(subtotal, sizeof subtotal, "%d", cart_subtotal);
+		httpd_set_var(&vars, "cart.subtotal", subtotal);
+
+		snprintf(shipping, sizeof shipping, "%d", cart_shipping);
+		httpd_set_var(&vars, "cart.shipping", shipping);
+
+		snprintf(total, sizeof total, "%d", cart_total);
+		httpd_set_var(&vars, "cart.total", total);
+
+		httpd_set_var(&vars, "cart.items", httpd_get_var(cookies, "item"));
+
+		httpd_template("html/cart-checkout.html", &vars);
 	}
 
 	website_foot();
@@ -326,12 +354,32 @@ page_cart_del(char **matches)
 	struct httpd_var_list *cookies = httpd_parse_cookies();
 	char new[1024], *val;
 
-
 	if ((val = httpd_get_var(cookies, "item")) == NULL)
 		httpd_fatal("no $item cookie");
 	del_string(new, sizeof new, val, matches[0]);
 	httpd_set_var(&httpd_cookies, "item", new);
 	httpd_redirect(303, "/cart/");
+}
+
+static void
+page_cart_done(char **matches)
+{
+	(void)matches;
+
+	httpd_set_var(&httpd_cookies, "item", "");
+	website_head("Paiement Réussi");
+	httpd_template("html/cart-done.html", &website);
+	website_foot();
+}
+
+static void
+page_cart_error(char **matches)
+{
+	(void)matches;
+
+	website_head("Erreur de Paiement");
+	httpd_template("html/cart-error.html", &website);
+	website_foot();
 }
 
 static char *item_file;
@@ -476,6 +524,8 @@ static struct httpd_handler handlers[] = {
 	{ HTTPD_GET,	"/cart/",			page_cart },
 	{ HTTPD_POST,	"/cart/add/*/",			page_cart_add },
 	{ HTTPD_POST,	"/cart/del/*/",			page_cart_del },
+	{ HTTPD_GET,	"/cart/done/",			page_cart_done },
+	{ HTTPD_GET,	"/cart/error/",			page_cart_error },
 	{ HTTPD_GET,	"/admin/",			page_admin },
 	{ HTTPD_POST,	"/admin/category/add/",		page_admin_category_add },
 	{ HTTPD_POST,	"/admin/category/edit/*/",	page_admin_category_edit },
