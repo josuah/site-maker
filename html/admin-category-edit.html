@@ -1,9 +1,9 @@
 
 <p style="margin-top: 6em;">
 	<form method="POST">
-		<input type="input" name="category.name" value="{{category.name}}" placeholder="nom"/>
+		<input type="submit" value="💾" formaction="/admin/category/edit/{{file}}/" class="button right"/>
+		<input type="submit" value="❌" formaction="/admin/category/del/{{file}}/" class="button right"/>
+		<input type="input" name="category.name" value="{{category.name}}" placeholder="nom" class="button"/>
 		<input type="hidden" name="item" value="{{item}}"/>
-		<input type="submit" value="💾" formaction="/admin/category/edit/{{file}}/"/>
-		<input type="submit" value="❌" formaction="/admin/category/del/{{file}}/"/>
 	</form>
 </p>

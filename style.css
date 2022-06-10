@@ -34,64 +34,71 @@ header > aside {
 	text-align: left;
 }
 
-nav a {
+.button, .price {
 	border: solid 1px #508;
+	background: #FFF;
+	line-height: 1.5em;
 	color: #508;
+	text-decoration: none;
+	font-size: 20px;
 	padding: 0 10px;
 	display: inline-block;
-	margin: 0;
 }
 
-nav a:hover {
-	background-color: #508;
-	color: #FFF;
+.price {
+	color: #000;
+	margin: 0 10px;
+	border: solid 1px #A90;
+	background: #FFC;
+	font-weight: normal;
 }
 
-nav a:last-child {
-	float: right;
+.button:hover {
+	background-color: #EEF;
+	color: #000;
+	cursor: pointer;
 }
 
-#cart-count {
+.counter {
 	background-color: #F00;
 	color: #FFF;
 	padding: 1px 4px;
 }
 
-#itemlist {
+.itemlist {
 	column-count: 3;
 	column-fill: balance;
 }
 
-#itemlist article {
+.itemlist a {
+	margin-bottom: 20px;
 	display: inline-block;
-	border: solid 1px #508;
 	width: calc(100% - 10px - 10px);
 	padding: 10px;
-	margin-bottom: 20px;
 }
 
-#itemlist img {
+.itemlist img {
 	position: relative;
 	width: 100%;
 }
 
-#itemlist p {
+.itemlist p {
 	margin: 0;
 	text-align: center;
 }
 
-#addcart {
+.right {
 	display: inline-block;
 	overflow: auto;
 	float: right;
 }
 
-#gallery {
+.gallery {
 	position: relative;
-	padding-left: calc(100% - 100px - 10px);
+	padding-left: calc(100% - 100px);
 }
 
-#gallery > article > img {
+.gallery > article > img {
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -99,38 +106,34 @@ nav a:last-child {
 	width: calc(100% - 100px - 10px);
 }
 
-#gallery > article > label {
+.gallery > article > label {
 	display: block;
-	margin-left: 10px;
 }
 
-#gallery > article > label > img {
+.gallery > article > label > img {
 	width: 100px;
 }
 
-#gallery > article > input {
+.gallery > article > input {
 	display: none;
 }
 
-#gallery > article > input:checked + img {
+.gallery > article > input:checked + img {
 	opacity: 1;
 }
 
-article.admin {
-	border: solid 1px;
-	padding: 10px;
-	margin: 20px 0;
+img {
+	max-width: 100%;
 }
 
-form input[type=submit] {
-	float: right;
+.admin {
+	border: solid 1px #508;
+	padding: 10px;
+	margin: 10px 0;
 }
 
 form input[type=input],
+form input[type=number],
 form textarea {
-	width: calc(100% - 100px);
-}
-
-h2 {
-	border-bottom: solid 2px;
+	width: calc(100% - 120px);
 }

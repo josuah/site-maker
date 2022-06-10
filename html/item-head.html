@@ -1,13 +1,14 @@
 
 <h2>
 	{{item.name}}
-	<form method="POST" id="addcart">
-		<input type="submit" value="ajouter au panier" formaction="/cart/add/{{file}}/"/>
+	<form method="POST" class="right">
+		<button class="button" formaction="/cart/add/{{file}}/">ajouter au panier</button>
 	</form>
+	<span class="price right">{{item.price}}€</span>
 </h2>
 
 <p>
 {{text}}
 </p>
 
-<section id="gallery">
+<section class="gallery">

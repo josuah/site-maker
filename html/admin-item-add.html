@@ -1,8 +1,9 @@
 
 <article class="admin">
 	<form method="POST">
-		<input type="input" name="item.name" placeholder="nouvel objet"/>
+		<input type="input" name="item.name" placeholder="nouvel objet" class="button"/>
+		<input type="hidden" name="item.price"/>
 		<input type="hidden" name="image"/>
-		<input type="submit" value="➕" formaction="/admin/item/add/{{file}}/"/>
+		<input type="submit" value="➕" formaction="/admin/item/add/{{file}}/" class="button right"/>
 	</form>
 </article>

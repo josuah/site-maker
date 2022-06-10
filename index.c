@@ -168,9 +168,9 @@ website_head(char *page_name)
 	httpd_template("html/website-head.html", &website);
 	printf("<nav>\n");
 	loop(&website, "category", website_loop_nav_category);
-	printf("<a href=\"/cart/\">Panier");
+	printf("<a href=\"/cart/\" class=\"button right\">Panier");
 	if (cart_count > 0)
-		printf(" <span id=\"cart-count\">%d</span>", cart_count);
+		printf(" <span class=\"counter\">%d</span>", cart_count);
 	printf("</a>\n");
 	printf("</nav>\n");
 	printf("<main>\n");
